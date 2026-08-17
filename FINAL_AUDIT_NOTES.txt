@@ -1,0 +1,21 @@
+GreyBoard final optimization audit
+
+Changes applied:
+- SuggestionOverlay.cs: System.Linq import required by ToArray().
+- Shortcut.cs: exactly one non-modifier key token is required; duplicate modifiers and malformed multi-key shortcuts are rejected.
+- TypingEngine.cs: obsolete AI requests are cancelled immediately when the previous-word/prefix context changes; Stop/Pause/ApplySettings cancel active AI work; profile is saved on Stop only when dirty; diagnostics require GREYBOARD_DIAGNOSTICS=1.
+- LanguageProfile.cs: prefix buckets indexed through 3 characters instead of 2.
+- Deckboard.csproj: duplicate "* - Copy*.cs" source files are excluded explicitly.
+
+Behavior preserved:
+- Classic active-word shortcut replaces the complete active word.
+- Classic shortcut immediately after Space inserts the next prediction.
+- Advanced Shift+Alt gesture cycles/commits predictions.
+- Shift key-up is passed through so normal Shift behavior remains correct.
+
+Validation performed in this environment:
+- All expected source files present.
+- Balanced braces/parentheses/brackets checked for all C# files.
+- No duplicate method signatures detected by simple source scan.
+- ZIP contents re-listed after packaging.
+- Full Windows/.NET build cannot be executed in this Linux environment.

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<UseWPF>true</UseWPF>
+		<UseWindowsForms>true</UseWindowsForms>
+		<PlatformTarget>x64</PlatformTarget>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <Folder Include="Properties\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Remove="**/* - Copy*.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Reference Include="UIAutomationClient" />
+	  <Reference Include="UIAutomationTypes" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="Languages\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+</Project>

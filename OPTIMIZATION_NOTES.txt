@@ -1,0 +1,22 @@
+Grey Board optimization pass
+
+Implemented:
+- Prediction refresh is event-driven/debounced instead of performing full UI Automation prediction refresh every 90 ms.
+- Caret positioning remains on a slower 180 ms fallback timer.
+- Classic prediction shortcuts pressed immediately after Space are deferred until key-up, then the post-Space caret context is reacquired.
+- LanguageProfile vocabulary is cached and prefix-indexed (1-2 character buckets).
+- Next-word predictions are cached by previous word and invalidated when learning changes the profile.
+- LanguageProfile learning is kept in memory and persisted on a 4-second debounce and on stop.
+- UserSettings protected words and personal corrections use runtime lookup caches.
+- Shortcut strings are parsed once and cached instead of being split/parsed on every key event.
+- Overlay Render and caret-position UI updates are coalesced to avoid redundant Dispatcher work.
+- Ollama autocomplete requests are debounced by 220 ms and obsolete requests are cancelled.
+- Diagnostic disk logging is disabled by default; attach a debugger or set GREYBOARD_DIAGNOSTICS=1 to enable it.
+- Ollama and profile lifecycle cleanup is handled on stop/dispose.
+- Classic active-word replacement, Classic post-Space next-word insertion, and Advanced Shift+Alt behavior were preserved in the source paths.
+
+Validation:
+- git diff --check: passed
+- C# source brace/parenthesis/bracket sanity scan: passed for all 17 .cs files
+- Duplicate method-signature scan: passed
+- Full .NET build could not be executed in this environment because the dotnet SDK is not installed.
