@@ -9,7 +9,6 @@ namespace TypeSenseOverlay;
 internal sealed class LanguageProfile
 {
     private static readonly string[] Defaults =
-
 {
     "the", "to", "and", "I", "you", "a", "is", "it", "that", "for",
     "with", "this", "my", "on", "we", "have", "just", "really", "would", "love",
