@@ -25,18 +25,21 @@ internal static class Native
             string word,
             string previousWord,
             string prefix,
-            bool caretInsideWord)
+            bool caretInsideWord,
+            string recentContext)
         {
             Word = word;
             PreviousWord = previousWord;
             Prefix = prefix;
             CaretInsideWord = caretInsideWord;
+            RecentContext = recentContext;
         }
 
         public string Word { get; }
         public string PreviousWord { get; }
         public string Prefix { get; }
         public bool CaretInsideWord { get; }
+        public string RecentContext { get; }
     }
 
     public static bool TryGetActiveTextContext(out ActiveTextContext context)
@@ -89,9 +92,8 @@ internal static class Native
                 // Caret is immediately after a separator (for example after
                 // pressing Space). Keep the preceding word as context so the
                 // prediction engine can offer the next three words.
-                int contextEnd = caret - 1;
-                while (contextEnd >= 0 && !IsWordCharacter(allText[contextEnd]))
-                    contextEnd--;
+                // The preceding word is computed below from the same caret
+                // position. No second context endpoint is needed here.
 
                 // If there is no previous word, the caller will naturally
                 // suppress predictions because both context fields are empty.
@@ -120,11 +122,19 @@ internal static class Native
                 ? allText.Substring(start, caret - start)
                 : string.Empty;
 
+            // The prediction engine needs more than the immediately previous
+            // word. We already have the document text in memory here, so build
+            // a tiny local context window from the words before the active
+            // word/caret. This is used only for local prediction ranking.
+            int contextEnd = Math.Clamp(start, 0, allText.Length);
+            string recentContext = ExtractRecentContext(allText, contextEnd, 8);
+
             context = new ActiveTextContext(
                 word,
                 previousWord,
                 prefix,
-                inside);
+                inside,
+                recentContext);
 
             _lastTextElement = focused;
             _lastTextContext = context;
@@ -639,6 +649,36 @@ internal static class Native
         target.Move(
             TextUnit.Character,
             offset);
+    }
+
+    private static string ExtractRecentContext(string text, int end, int maxWords)
+    {
+        if (string.IsNullOrWhiteSpace(text) || end <= 0 || maxWords <= 0)
+            return string.Empty;
+
+        end = Math.Clamp(end, 0, text.Length);
+        List<string> words = new List<string>(maxWords);
+        int cursor = end - 1;
+
+        while (cursor >= 0 && words.Count < maxWords)
+        {
+            while (cursor >= 0 && !IsWordCharacter(text[cursor]))
+                cursor--;
+
+            if (cursor < 0)
+                break;
+
+            int wordEnd = cursor + 1;
+            while (cursor >= 0 && IsWordCharacter(text[cursor]))
+                cursor--;
+
+            string word = text.Substring(cursor + 1, wordEnd - cursor - 1);
+            if (word.Length >= 2)
+                words.Add(word);
+        }
+
+        words.Reverse();
+        return string.Join(" ", words);
     }
 
     private static bool IsWordCharacter(char c)

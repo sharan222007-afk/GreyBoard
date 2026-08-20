@@ -17,15 +17,12 @@ internal sealed class SettingsWindow : Window
     private readonly TextBox _second;
     private readonly TextBox _third;
     private readonly TextBox _pause;
-    private readonly TextBox _enhanceShortcut;
 
     private readonly TextBox _advancedKey1;
     private readonly TextBox _advancedKey2;
 
     private readonly ComboBox _shortcutMode;
 
-    private readonly TextBox _ollamaModel;
-    private readonly CheckBox _aiEnhance;
     private readonly TextBox _personalCorrections;
     private readonly TextBox _learnedWords;
 
@@ -270,78 +267,6 @@ internal sealed class SettingsWindow : Window
                 "Pause / resume",
                 settings.PauseShortcut);
 
-        _enhanceShortcut =
-            AddShortcutRow(
-                panel,
-                "AI Enhance",
-                settings.EnhanceShortcut);
-
-        panel.Children.Add(
-            new TextBlock
-            {
-                Text =
-                    "AI Enhance opens a review window for selected text.",
-                FontSize = 11.0,
-                Foreground = Muted,
-                Margin =
-                    new Thickness(
-                        0.0,
-                        2.0,
-                        0.0,
-                        18.0)
-            });
-
-        // ------------------------------------------------------------
-        // AI
-        // ------------------------------------------------------------
-
-        panel.Children.Add(
-            Section("AI Enhance / local Ollama"));
-
-        _aiEnhance =
-            new CheckBox
-            {
-                Content =
-                    "Enable AI Enhance (local Ollama)",
-
-                IsChecked =
-                    settings.AIEnhanceEnabled,
-
-                Foreground = Ink,
-
-                Margin =
-                    new Thickness(
-                        0.0,
-                        4.0,
-                        0.0,
-                        8.0)
-            };
-
-        panel.Children.Add(_aiEnhance);
-
-        _ollamaModel =
-            AddTextRow(
-                panel,
-                "Ollama model",
-                settings.OllamaModel);
-
-        panel.Children.Add(
-            new TextBlock
-            {
-                Text =
-                    "Endpoint: " +
-                    settings.OllamaEndpoint,
-
-                FontSize = 11.0,
-                Foreground = Muted,
-
-                Margin =
-                    new Thickness(
-                        0.0,
-                        2.0,
-                        0.0,
-                        14.0)
-            });
 
         // ------------------------------------------------------------
         // LEARNED WORDS
@@ -1267,8 +1192,7 @@ internal sealed class SettingsWindow : Window
             _first.Text.Trim(),
             _second.Text.Trim(),
             _third.Text.Trim(),
-            _pause.Text.Trim(),
-            _enhanceShortcut.Text.Trim()
+            _pause.Text.Trim()
         };
 
         bool advanced =
@@ -1352,9 +1276,6 @@ internal sealed class SettingsWindow : Window
         _settings.PauseShortcut =
             classicValues[3];
 
-        _settings.EnhanceShortcut =
-            classicValues[4];
-
         _settings.ShortcutMode =
             advanced
                 ? "Advanced"
@@ -1365,15 +1286,6 @@ internal sealed class SettingsWindow : Window
 
         _settings.AdvancedKey2 =
             advancedKey2;
-
-        _settings.AIEnhanceEnabled =
-            _aiEnhance.IsChecked == true;
-
-        _settings.OllamaModel =
-            string.IsNullOrWhiteSpace(
-                _ollamaModel.Text)
-                ? "qwen2.5:3b"
-                : _ollamaModel.Text.Trim();
 
         _settings.Theme =
             _theme.SelectedItem?.ToString()

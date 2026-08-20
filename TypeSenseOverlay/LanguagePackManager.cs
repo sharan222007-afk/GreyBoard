@@ -76,6 +76,9 @@ internal static class LanguagePackManager
     {
         EnsureDefaultPacks();
 
+        LanguagePack? bestPack = null;
+        int bestVocabularyCount = -1;
+
         foreach (string root in CandidatePackRoots())
         {
             string path = Path.Combine(root, name, "pack.json");
@@ -86,17 +89,29 @@ internal static class LanguagePackManager
             {
                 LanguagePack? pack = JsonSerializer.Deserialize<LanguagePack>(
                     File.ReadAllText(path),
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
 
-                if (pack != null && pack.Vocabulary.Count > 0)
-                    return pack;
+                if (pack == null || pack.Vocabulary.Count == 0)
+                    continue;
+
+                // Prefer the richest valid pack. This prevents an old tiny
+                // per-user fallback pack from silently overriding the bundled
+                // 124k-word English pack.
+                if (pack.Vocabulary.Count > bestVocabularyCount)
+                {
+                    bestPack = pack;
+                    bestVocabularyCount = pack.Vocabulary.Count;
+                }
             }
             catch
             {
             }
         }
 
-        return null;
+        return bestPack;
     }
 
     public static void OpenPacksFolder()

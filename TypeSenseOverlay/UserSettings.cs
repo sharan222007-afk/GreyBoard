@@ -39,13 +39,6 @@ internal sealed class UserSettings
     public bool PersonalLearningEnabled { get; set; } = true;
     public bool TrustedAutocorrectEnabled { get; set; } = true;
 
-    // Local AI settings.
-    public bool AIEnhanceEnabled { get; set; } = true;
-    public string EnhanceShortcut { get; set; } = "Ctrl+Alt+E";
-    public string OllamaEndpoint { get; set; } = "http://127.0.0.1:11434";
-    public string OllamaModel { get; set; } = "qwen2.5:3b";
-    public int OllamaTimeoutSeconds { get; set; } = 18;
-
     // Runtime-only lookup caches. They are rebuilt whenever settings are saved.
     private readonly HashSet<string> _protectedWordCache =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows.Input;
 
 namespace TypeSenseOverlay;
@@ -97,10 +97,12 @@ internal sealed class AdvancedShortcutController
                 _hasSelection;
 
             _key1Down = false;
-            _key2Down = false;
             _gestureActive = false;
             _hasSelection = false;
 
+            // Keep Key 2's physical-down state until its real key-up arrives.
+            // Key 2 was consumed on key-down, so its eventual key-up must also
+            // be consumed even if the user releases Key 1 first.
             if (commit)
                 return Action.Commit;
         }

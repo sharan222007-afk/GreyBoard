@@ -11,8 +11,7 @@ internal static class Program
         UserSettings settings = UserSettings.Load();
         LanguageProfile profile = LanguageProfile.Load();
         SuggestionOverlay overlay = new SuggestionOverlay(settings);
-        EnhanceOverlay enhanceOverlay = new EnhanceOverlay(settings);
-        TypingEngine engine = new TypingEngine(profile, settings, overlay, enhanceOverlay);
+        TypingEngine engine = new TypingEngine(profile, settings, overlay);
         ControlCenter controlCenter = new ControlCenter(settings, engine);
         using (new TrayMenu(engine, overlay, settings, controlCenter))
         {

@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Threading;
 
 namespace TypeSenseOverlay;
@@ -18,21 +16,11 @@ internal sealed class TypingEngine : IDisposable
 
     private readonly SuggestionOverlay _overlay;
 
-    private readonly EnhanceOverlay _enhanceOverlay;
     private readonly AdvancedShortcutController _advancedShortcut;
-    private readonly OllamaSuggestionService _ollamaSuggestions;
-    private CancellationTokenSource? _suggestionCancellation;
-    private int _suggestionGeneration;
 
     private readonly DispatcherTimer _caretTimer;
     private readonly DispatcherTimer _predictionRefreshTimer;
     private readonly DispatcherTimer _profileSaveTimer;
-    private readonly DispatcherTimer _aiDebounceTimer;
-
-    private string _pendingAiPrevious = "";
-    private string _pendingAiPrefix = "";
-    private List<SuggestionCandidate> _pendingAiCandidates = new List<SuggestionCandidate>();
-    private bool _aiRequestPending;
 
     private Native.HookProc? _hookCallback;
 
@@ -52,10 +40,10 @@ internal sealed class TypingEngine : IDisposable
     private string _pendingPredictionTyped = "";
     private string _pendingPredictionActiveWord = "";
     private string _pendingPredictionPrevious = "";
+    private string _pendingPredictionRecentContext = "";
     private int _pendingPredictionReplaceLength = 0;
     private bool _pendingShortcutKeyUpReceived;
     private string _predictionPrefix = "";
-    private int _pendingEnhanceKey = -1;
     private int _selectedPredictionIndex = -1;
     private int _consumedNavigationKey = -1;
     private string _selectionContextKey = "";
@@ -64,7 +52,7 @@ internal sealed class TypingEngine : IDisposable
     private bool _shiftDown;
     private bool _refreshAfterBoundary;
     private int _pendingBoundaryShortcutKey = -1;
-    private string _aiContextKey = "";
+    private string _recentContext = "";
 
     private static readonly bool DiagnosticsEnabled =
         string.Equals(
@@ -102,12 +90,14 @@ internal sealed class TypingEngine : IDisposable
 
     public event Action? StateChanged;
 
-    public TypingEngine(LanguageProfile profile, UserSettings settings, SuggestionOverlay overlay, EnhanceOverlay enhanceOverlay)
+    public TypingEngine(LanguageProfile profile, UserSettings settings, SuggestionOverlay overlay)
     {
         _profile = profile;
         _settings = settings;
         _overlay = overlay;
-        _enhanceOverlay = enhanceOverlay;
+
+        _profile.SetLanguagePack(
+            LanguagePackManager.Load(_settings.SelectedLanguagePack));
 
         _advancedShortcut = new AdvancedShortcutController();
 
@@ -119,9 +109,7 @@ internal sealed class TypingEngine : IDisposable
             _settings.ShortcutMode.Equals(
                 "Advanced",
                 StringComparison.OrdinalIgnoreCase);
-        _enhanceOverlay.SetApplyHandler(text => ApplyEnhancement(text));
         _overlay.SetPredictionClickHandler(Accept);
-        _ollamaSuggestions = new OllamaSuggestionService(settings);
         _caretTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(180L)
@@ -152,38 +140,29 @@ internal sealed class TypingEngine : IDisposable
                 _profile.Save();
         };
 
-        _aiDebounceTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(220L)
-        };
-        _aiDebounceTimer.Tick += delegate
-        {
-            _aiDebounceTimer.Stop();
-            if (_aiRequestPending && !IsPaused)
-            {
-                _aiRequestPending = false;
-                StartAISuggestionRequest(
-                    _pendingAiPrevious,
-                    _pendingAiPrefix,
-                    _pendingAiCandidates);
-            }
-        };
+        _hookCallback = HookCallback;
     }
 
     public void Start()
     {
         if (IsRunning)
-        {
             return;
-        }
-        _hookCallback = HookCallback;
+
         using Process process = Process.GetCurrentProcess();
         using ProcessModule module = process.MainModule;
-        _hook = Native.SetWindowsHookEx(13, _hookCallback, Native.GetModuleHandle(module.ModuleName), 0u);
+
+        _hook = Native.SetWindowsHookEx(
+            13,
+            _hookCallback,
+            Native.GetModuleHandle(module.ModuleName),
+            0u);
+
         if (_hook == IntPtr.Zero)
         {
-            throw new InvalidOperationException("Windows could not start the keyboard listener.");
+            throw new InvalidOperationException(
+                "Windows could not start the keyboard listener.");
         }
+
         IsRunning = true;
         IsPaused = false;
         _overlay.ShowOverlay();
@@ -200,9 +179,6 @@ internal sealed class TypingEngine : IDisposable
             _caretTimer.Stop();
             _predictionRefreshTimer.Stop();
             _profileSaveTimer.Stop();
-            _aiDebounceTimer.Stop();
-            CancelAISuggestionRequest();
-
             if (_profile.IsDirty)
                 _profile.Save();
             if (_hook != IntPtr.Zero)
@@ -233,7 +209,6 @@ internal sealed class TypingEngine : IDisposable
             IsPaused = !IsPaused;
             _current = "";
             _predictionRefreshTimer.Stop();
-            CancelAISuggestionRequest();
             _pendingBoundaryShortcutKey = -1;
             _refreshAfterBoundary = false;
             _candidates = new List<SuggestionCandidate>();
@@ -253,7 +228,8 @@ internal sealed class TypingEngine : IDisposable
                 "Advanced",
                 StringComparison.OrdinalIgnoreCase);
 
-        CancelAISuggestionRequest();
+        _profile.SetLanguagePack(
+            LanguagePackManager.Load(_settings.SelectedLanguagePack));
 
         _overlay.ApplyAppearance();
         if (IsRunning && _settings.Placement == "Fixed")
@@ -334,6 +310,8 @@ internal sealed class TypingEngine : IDisposable
             {
                 bool wasKey2 =
                     _advancedShortcut.IsKey2(key);
+                bool key2WasDown =
+                    _advancedShortcut.IsKey2Down;
 
                 bool wasKey1 =
                     _advancedShortcut.IsKey1(key);
@@ -341,7 +319,7 @@ internal sealed class TypingEngine : IDisposable
                 AdvancedShortcutController.Action action =
                     _advancedShortcut.HandleKeyUp(key);
 
-                if (wasKey2 && gestureWasActive)
+                if (wasKey2 && key2WasDown)
                 {
                     // Consume Key 2 UP.
                     //
@@ -421,19 +399,6 @@ internal sealed class TypingEngine : IDisposable
                 CompletePendingPredictionAcceptance();
         }
 
-        if (isKeyUp &&
-            key == _pendingEnhanceKey &&
-            _pendingEnhanceKey >= 0)
-        {
-            _pendingEnhanceKey = -1;
-
-            _caretTimer.Dispatcher.BeginInvoke(
-                DispatcherPriority.Input,
-                new Action(() => EnhanceSelection(EnhanceMode.Enhance)));
-
-            return 1;
-        }
-
         if (isKeyUp && key == _consumedNavigationKey)
         {
             _consumedNavigationKey = -1;
@@ -456,18 +421,6 @@ internal sealed class TypingEngine : IDisposable
 
         if (IsPaused)
             return Native.CallNextHookEx(_hook, code, wParam, lParam);
-
-        if (_settings.AIEnhanceEnabled &&
-            Shortcut.Matches(
-                _settings.EnhanceShortcut,
-                key,
-                _controlDown,
-                _altDown,
-                _shiftDown))
-        {
-            _pendingEnhanceKey = key;
-            return 1;
-        }
 
         // Space is handled before the target application receives it. If the
         // user immediately presses a Classic prediction shortcut, defer that
@@ -513,6 +466,7 @@ internal sealed class TypingEngine : IDisposable
                 string typed = context.Word;
                 _current = typed;
                 _previous = context.PreviousWord;
+                _recentContext = context.RecentContext;
 
                 if (!string.IsNullOrWhiteSpace(typed) &&
                     !_settings.IsProtectedWord(typed) &&
@@ -581,11 +535,39 @@ internal sealed class TypingEngine : IDisposable
         _pendingShortcutKey = key;
         _pendingPredictionIndex = index;
         _pendingPredictionWord = _candidates[index].Word;
-        _pendingPredictionTyped = string.IsNullOrWhiteSpace(_predictionPrefix) ? _current : _predictionPrefix;
+        _pendingPredictionTyped = string.IsNullOrWhiteSpace(_predictionPrefix)
+            ? _current
+            : _predictionPrefix;
         _pendingPredictionActiveWord = _current;
         _pendingPredictionPrevious = _previous;
+        _pendingPredictionRecentContext = _recentContext;
         _pendingPredictionReplaceLength = _current.Length;
         _pendingShortcutKeyUpReceived = false;
+
+        // Capture the freshest context at acceptance time. This is especially
+        // important for Advanced Shift+Alt, where selection and Shift release
+        // are separated by a real physical key interval.
+        if (Native.TryGetActiveTextContext(
+                out Native.ActiveTextContext context))
+        {
+            _pendingPredictionActiveWord = context.Word;
+            _pendingPredictionPrevious =
+                string.IsNullOrWhiteSpace(context.PreviousWord)
+                    ? _pendingPredictionPrevious
+                    : context.PreviousWord;
+            _pendingPredictionRecentContext = context.RecentContext;
+            _pendingPredictionTyped =
+                string.IsNullOrWhiteSpace(context.Word)
+                    ? string.Empty
+                    : context.CaretInsideWord &&
+                      !string.IsNullOrWhiteSpace(context.Prefix)
+                        ? context.Prefix
+                        : context.Word;
+            _pendingPredictionReplaceLength = context.Word.Length;
+
+            if (!string.IsNullOrWhiteSpace(context.Word))
+                Native.CapturePredictionTarget(context.Word);
+        }
 
         DiagnosticLog(
             $"SHORTCUT_SNAPSHOT word=\"{_pendingPredictionWord}\" " +
@@ -614,12 +596,10 @@ internal sealed class TypingEngine : IDisposable
         string typedPrefix = _pendingPredictionTyped;
         string activeWord = _pendingPredictionActiveWord;
         string previous = _pendingPredictionPrevious;
+        string recentContext = _pendingPredictionRecentContext;
 
         ClearPendingPrediction();
 
-        // Keyboard acceptance must use the same WPF/UI-thread execution
-        // context as mouse acceptance. This prevents the old failure mode where
-        // the word was selected but insertion never occurred.
         _caretTimer.Dispatcher.BeginInvoke(
             DispatcherPriority.Input,
             new Action(() =>
@@ -628,7 +608,9 @@ internal sealed class TypingEngine : IDisposable
                     word,
                     typedPrefix,
                     activeWord,
-                    previous);
+                    previous,
+                    recentContext,
+                    0);
             }));
     }
 
@@ -636,7 +618,9 @@ internal sealed class TypingEngine : IDisposable
         string word,
         string typedPrefix,
         string expectedActiveWord,
-        string previous)
+        string previous,
+        string pendingRecentContext,
+        int attempt)
     {
         if (IsPaused || string.IsNullOrWhiteSpace(word))
             return;
@@ -655,52 +639,83 @@ internal sealed class TypingEngine : IDisposable
         if (!Native.TryGetActiveTextContext(
                 out Native.ActiveTextContext context))
         {
-            DiagnosticLog(
-                "ACCEPT_REJECT no-active-context");
+            if (attempt < 2)
+            {
+                _caretTimer.Dispatcher.BeginInvoke(
+                    DispatcherPriority.Background,
+                    new Action(() =>
+                    {
+                        AcceptPendingPredictionOnUiThread(
+                            word,
+                            typedPrefix,
+                            expectedActiveWord,
+                            previous,
+                            pendingRecentContext,
+                            attempt + 1);
+                    }));
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(expectedActiveWord))
+            {
+                bool inserted = Native.InsertTextAtCaret(word + " ");
+                DiagnosticLog(
+                    $"ACCEPT_NEXT_WORD_FALLBACK inserted={inserted} " +
+                    $"word=\"{word}\"");
+
+                if (inserted)
+                {
+                    _recentContext = pendingRecentContext;
+                    FinalizeAcceptedPrediction(word, previous);
+                }
+            }
+
             return;
         }
 
-        // There are TWO valid Classic shortcut states:
-        //
-        // 1. We are inside an active word:
-        //       replace that complete word.
-        //
-        // 2. The user has just pressed Space:
-        //       context.Word is empty, so this prediction belongs to the
-        //       NEXT word and must be inserted at the caret.
-        //
-        // The old implementation rejected state #2 because it required
-        // context.Word to be non-empty. That is the actual reason the
-        // Classic shortcut worked before Space but failed immediately after it.
-
         if (string.IsNullOrWhiteSpace(context.Word))
         {
-            // After Space, the next prediction is an insertion, not a
-            // replacement. We intentionally do not compare context.Word
-            // with expectedActiveWord here because both are expected to be
-            // empty in this state.
-            bool inserted =
-                Native.InsertTextAtCaret(word + " ");
+            bool inserted = Native.InsertTextAtCaret(word + " ");
 
             DiagnosticLog(
                 $"ACCEPT_NEXT_WORD inserted={inserted} " +
-                $"word=\"{word}\" " +
-                $"previous=\"{context.PreviousWord}\"");
+                $"word=\"{word}\" previous=\"{context.PreviousWord}\"");
 
             if (!inserted)
                 return;
+
+            _recentContext = string.IsNullOrWhiteSpace(context.RecentContext)
+                ? pendingRecentContext
+                : context.RecentContext;
 
             FinalizeAcceptedPrediction(
                 word,
                 string.IsNullOrWhiteSpace(context.PreviousWord)
                     ? previous
                     : context.PreviousWord);
-
             return;
         }
 
-        // We are inside an active word. Never replace a word that changed
-        // between prediction and acceptance.
+        // If Space has not propagated through the target editor yet, allow a
+        // couple of non-blocking UI retries. Genuine typing changes still fail
+        // the active-word equality check below.
+        if (string.IsNullOrWhiteSpace(expectedActiveWord) && attempt < 2)
+        {
+            _caretTimer.Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new Action(() =>
+                {
+                    AcceptPendingPredictionOnUiThread(
+                        word,
+                        typedPrefix,
+                        expectedActiveWord,
+                        previous,
+                        pendingRecentContext,
+                        attempt + 1);
+                }));
+            return;
+        }
+
         if (!context.Word.Equals(
                 expectedActiveWord,
                 StringComparison.Ordinal))
@@ -715,7 +730,6 @@ internal sealed class TypingEngine : IDisposable
             ? char.ToUpperInvariant(word[0]) + word.Substring(1)
             : word;
 
-        // Capture and replace on the same UI thread.
         if (!Native.CapturePredictionTarget(context.Word))
         {
             DiagnosticLog(
@@ -734,6 +748,10 @@ internal sealed class TypingEngine : IDisposable
         if (!accepted)
             return;
 
+        _recentContext = string.IsNullOrWhiteSpace(context.RecentContext)
+            ? pendingRecentContext
+            : context.RecentContext;
+
         FinalizeAcceptedPrediction(
             output,
             string.IsNullOrWhiteSpace(context.PreviousWord)
@@ -745,7 +763,7 @@ internal sealed class TypingEngine : IDisposable
         string word,
         string previous)
     {
-        _profile.Learn(word, previous);
+        _profile.Learn(word, ParseRecentContext(_recentContext));
         _previous = word.ToLowerInvariant();
         _current = "";
         _predictionPrefix = "";
@@ -763,6 +781,7 @@ internal sealed class TypingEngine : IDisposable
         _pendingPredictionTyped = "";
         _pendingPredictionActiveWord = "";
         _pendingPredictionPrevious = "";
+        _pendingPredictionRecentContext = "";
         _pendingPredictionReplaceLength = 0;
         _pendingShortcutKeyUpReceived = false;
     }
@@ -845,15 +864,11 @@ internal sealed class TypingEngine : IDisposable
         {
             DiagnosticLog(
                 "ADVANCED_COMMIT ignored - no selected prediction");
-
             return;
         }
 
-        int index =
-            _selectedPredictionIndex;
-
-        string word =
-            _candidates[index].Word;
+        int index = _selectedPredictionIndex;
+        string word = _candidates[index].Word;
 
         DiagnosticLog(
             "ADVANCED_COMMIT index=" +
@@ -862,7 +877,10 @@ internal sealed class TypingEngine : IDisposable
             word +
             "\"");
 
-        Accept(index);
+        // Never perform UI Automation replacement directly inside the low-level
+        // keyboard hook. Queue the same acceptance path used by Classic mode.
+        SnapshotPredictionForAcceptance(0, index);
+        CompletePendingPredictionAcceptance();
     }
 
     private int? PredictionChoice(int key)
@@ -916,6 +934,8 @@ internal sealed class TypingEngine : IDisposable
 
             if (!string.IsNullOrWhiteSpace(context.PreviousWord))
                 previous = context.PreviousWord;
+
+            _recentContext = context.RecentContext;
         }
 
         // Clean up prefixes for Emoji and Clipboard injections
@@ -960,37 +980,22 @@ internal sealed class TypingEngine : IDisposable
         FinalizeAcceptedPrediction(word, previous);
     }
 
-    public void EnhanceSelection(EnhanceMode mode)
+    private static List<string> ParseRecentContext(string context)
     {
-        if (!_settings.AIEnhanceEnabled)
-            return;
+        if (string.IsNullOrWhiteSpace(context))
+            return new List<string>();
 
-        if (!Native.TryGetSelectedText(out string selectedText))
-        {
-            DiagnosticLog("ENHANCE no selected text");
-            return;
-        }
-
-        DiagnosticLog($"ENHANCE mode={mode} length={selectedText.Length}");
-        _enhanceOverlay.ShowEnhancement(selectedText, mode);
-    }
-
-    private void ApplyEnhancement(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return;
-
-        bool replaced = Native.ReplaceCapturedSelection(text);
-        DiagnosticLog($"ENHANCE_APPLY success={replaced} length={text.Length}");
-        if (replaced)
-            SchedulePredictionRefresh();
+        return context
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .TakeLast(4)
+            .ToList();
     }
 
     private void Commit(string word)
     {
         if (!string.IsNullOrWhiteSpace(word))
         {
-            _profile.Learn(word, _previous);
+            _profile.Learn(word, ParseRecentContext(_recentContext));
             _previous = word.ToLowerInvariant();
         }
 
@@ -1021,6 +1026,10 @@ internal sealed class TypingEngine : IDisposable
         {
             return null;
         }
+
+        string? packCorrection = _profile.TryGetAutocorrection(typed);
+        if (!string.IsNullOrWhiteSpace(packCorrection))
+            return packCorrection;
 
         var corrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -1072,6 +1081,40 @@ internal sealed class TypingEngine : IDisposable
 
     private void RenderCandidates()
     {
+        List<SuggestionCandidate> normalized = _candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Word))
+            .GroupBy(
+                candidate => candidate.Word,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(candidate => candidate.Score)
+                .First())
+            .OrderByDescending(candidate => candidate.Score)
+            .Take(3)
+            .ToList();
+
+        // The prediction bar is a three-slot control. Never present a partial
+        // prediction set during normal typing. The prediction engine is given
+        // a chance to produce three candidates; if it cannot, keep the current
+        // UI hidden rather than showing an empty/partial bar.
+        if (!IsPaused && normalized.Count < 3)
+        {
+            DiagnosticLog(
+                $"RENDER_INCOMPLETE_PREDICTIONS count={normalized.Count}; hiding-partial-bar");
+            _candidates = normalized;
+            _selectedPredictionIndex = -1;
+            _overlay.Render(
+                Array.Empty<string>(),
+                false,
+                -1);
+            return;
+        }
+
+        _candidates = normalized;
+
+        if (_selectedPredictionIndex >= _candidates.Count)
+            _selectedPredictionIndex = -1;
+
         List<string> words = _candidates
             .Select(candidate => candidate.Word)
             .ToList();
@@ -1092,31 +1135,43 @@ internal sealed class TypingEngine : IDisposable
             return;
         }
 
-        if (!Native.TryGetActiveTextContext(out Native.ActiveTextContext context) ||
-            (string.IsNullOrWhiteSpace(context.Word) &&
-             string.IsNullOrWhiteSpace(context.PreviousWord)))
+        if (!Native.TryGetActiveTextContext(out Native.ActiveTextContext context))
         {
-            _current = "";
-
-            // Clipboard History Feature
-            List<string> emptyStateWords = new List<string>();
-            if (System.Windows.Clipboard.ContainsText())
+            // UI Automation can temporarily lose TextPattern while an editor
+            // updates its caret. Never erase a valid prediction set because of
+            // one transient read failure.
+            if (_candidates.Count > 0)
             {
-                string clipText = System.Windows.Clipboard.GetText().Trim();
-                // Only suggest short strings to avoid breaking the UI layout
-                if (!string.IsNullOrWhiteSpace(clipText) && clipText.Length < 30)
-                {
-                    emptyStateWords.Add("📋 " + clipText);
-                }
+                DiagnosticLog(
+                    "REFRESH_CONTEXT_UNAVAILABLE preserving-current-candidates");
+                return;
             }
 
-            _candidates = emptyStateWords.Select(w => new SuggestionCandidate(w, 100, 0, SuggestionKind.Prediction)).ToList();
-            _overlay.Render(emptyStateWords, false);
+            if (!string.IsNullOrWhiteSpace(_previous))
+            {
+                _candidates = _profile.CandidateModels(
+                    _previous,
+                    string.Empty,
+                    _recentContext);
+                RenderCandidates();
+                return;
+            }
+
+            _current = "";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(context.Word) &&
+            string.IsNullOrWhiteSpace(context.PreviousWord) &&
+            string.IsNullOrWhiteSpace(_previous))
+        {
+            _current = "";
             return;
         }
 
         _current = context.Word;
         _previous = context.PreviousWord;
+        _recentContext = context.RecentContext;
         _refreshAfterBoundary = false;
 
         string predictionPrefix = !string.IsNullOrWhiteSpace(context.Word)
@@ -1138,7 +1193,10 @@ internal sealed class TypingEngine : IDisposable
         }
 
         string selectionContextKey =
-            _previous + "|" + context.Word + "|" + predictionPrefix;
+            _recentContext + "|" +
+            _previous + "|" +
+            context.Word + "|" +
+            predictionPrefix;
 
         if (!string.Equals(
                 selectionContextKey,
@@ -1150,15 +1208,16 @@ internal sealed class TypingEngine : IDisposable
         }
 
         _candidates = _profile
-            .CandidateModels(_previous, predictionPrefix);
+            .CandidateModels(_previous, predictionPrefix, _recentContext);
 
         if (!string.IsNullOrWhiteSpace(predictionPrefix))
         {
+            // LanguageProfile.CandidateModels already performs the controlled
+            // prefix/context ranking. Do not apply a second hard prefix filter
+            // here: doing so discards the contextual fallback candidates that
+            // are intentionally used when a prefix has fewer than three strong
+            // completions. Only suppress the exact word already typed.
             _candidates = _candidates
-                .Where(candidate =>
-                    candidate.Word.StartsWith(
-                        predictionPrefix,
-                        StringComparison.OrdinalIgnoreCase))
                 .Where(candidate =>
                     string.IsNullOrWhiteSpace(context.Word) ||
                     !candidate.Word.Equals(
@@ -1215,125 +1274,6 @@ internal sealed class TypingEngine : IDisposable
                     $"{candidate.Word}:{candidate.Score}:{candidate.Kind}")));
 
         RenderCandidates();
-        RequestAISuggestions(context.PreviousWord, predictionPrefix, _candidates);
-
-    }
-
-    private void CancelAISuggestionRequest()
-    {
-        Interlocked.Increment(ref _suggestionGeneration);
-
-        _aiRequestPending = false;
-        _aiDebounceTimer.Stop();
-
-        _suggestionCancellation?.Cancel();
-        _suggestionCancellation?.Dispose();
-        _suggestionCancellation = null;
-    }
-
-    private void RequestAISuggestions(string previous, string prefix, List<SuggestionCandidate> localCandidates)
-    {
-        string contextKey =
-            (previous ?? string.Empty) +
-            "|" +
-            (prefix ?? string.Empty);
-
-        if (!string.Equals(
-                contextKey,
-                _aiContextKey,
-                StringComparison.Ordinal))
-        {
-            _aiContextKey = contextKey;
-            CancelAISuggestionRequest();
-        }
-
-        if (!_settings.AIEnhanceEnabled ||
-            prefix.Length < 2 ||
-            localCandidates.Count >= 3)
-        {
-            CancelAISuggestionRequest();
-            return;
-        }
-
-        _pendingAiPrevious = previous;
-        _pendingAiPrefix = prefix;
-        _pendingAiCandidates = localCandidates.ToList();
-        _aiRequestPending = true;
-
-        _aiDebounceTimer.Stop();
-        _aiDebounceTimer.Start();
-    }
-
-    private void StartAISuggestionRequest(string previous, string prefix, List<SuggestionCandidate> localCandidates)
-    {
-        if (!_settings.AIEnhanceEnabled || prefix.Length < 2 || localCandidates.Count >= 3)
-            return;
-
-        int generation = Interlocked.Increment(ref _suggestionGeneration);
-        _suggestionCancellation?.Cancel();
-        _suggestionCancellation?.Dispose();
-        _suggestionCancellation = new CancellationTokenSource();
-        CancellationToken token = _suggestionCancellation.Token;
-
-        _ = Task.Run(async () =>
-        {
-            List<string> aiWords = await _ollamaSuggestions.GetSuggestionsAsync(previous, prefix, token).ConfigureAwait(false);
-            if (token.IsCancellationRequested || generation != Volatile.Read(ref _suggestionGeneration) || aiWords.Count == 0)
-                return;
-
-            _caretTimer.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-            {
-                if (generation != _suggestionGeneration || IsPaused)
-                    return;
-
-                if (!Native.TryGetActiveTextContext(out Native.ActiveTextContext latest))
-                    return;
-
-                string latestPrefix = !string.IsNullOrWhiteSpace(latest.Word)
-                    ? (latest.CaretInsideWord ? latest.Prefix : latest.Word)
-                    : string.Empty;
-
-                if (!latestPrefix.Equals(
-                        prefix,
-                        StringComparison.OrdinalIgnoreCase))
-                    return;
-
-                foreach (string word in aiWords)
-                {
-                    if (!word.StartsWith(
-                            prefix,
-                            StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (!string.IsNullOrWhiteSpace(latest.Word) &&
-                        word.Equals(
-                            latest.Word,
-                            StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    if (_candidates.Any(
-                            x => x.Word.Equals(
-                                word,
-                                StringComparison.OrdinalIgnoreCase)))
-                        continue;
-
-                    _candidates.Add(
-                        new SuggestionCandidate(
-                            word,
-                            60,
-                            0,
-                            SuggestionKind.Prediction));
-                }
-
-                _candidates = _candidates
-                    .OrderByDescending(x => x.Score)
-                    .ThenBy(x => x.Word.Length)
-                    .Take(3)
-                    .ToList();
-                RenderCandidates();
-                DiagnosticLog($"AI_PREDICTION prefix=\"{prefix}\" list=[{string.Join(" | ", aiWords)}]");
-            }));
-        }, token);
     }
 
     private static int DamerauLevenshtein(string a, string b)
@@ -1367,7 +1307,5 @@ internal sealed class TypingEngine : IDisposable
     public void Dispose()
     {
         Stop();
-        _ollamaSuggestions.Dispose();
-        _enhanceOverlay.Dispose();
     }
 }
