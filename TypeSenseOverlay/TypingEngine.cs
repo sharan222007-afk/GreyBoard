@@ -16,15 +16,11 @@ internal sealed class TypingEngine : IDisposable
 
     private readonly SuggestionOverlay _overlay;
 
-    private readonly AdvancedShortcutController _advancedShortcut;
+    private readonly InputHookThread _inputThread;
 
     private readonly DispatcherTimer _caretTimer;
     private readonly DispatcherTimer _predictionRefreshTimer;
     private readonly DispatcherTimer _profileSaveTimer;
-
-    private Native.HookProc? _hookCallback;
-
-    private nint _hook;
 
     private string _current = "";
 
@@ -45,13 +41,11 @@ internal sealed class TypingEngine : IDisposable
     private bool _pendingShortcutKeyUpReceived;
     private string _predictionPrefix = "";
     private int _selectedPredictionIndex = -1;
-    private int _consumedNavigationKey = -1;
     private string _selectionContextKey = "";
     private bool _controlDown;
     private bool _altDown;
     private bool _shiftDown;
     private bool _refreshAfterBoundary;
-    private int _pendingBoundaryShortcutKey = -1;
     private string _recentContext = "";
 
     private static readonly bool DiagnosticsEnabled =
@@ -99,16 +93,6 @@ internal sealed class TypingEngine : IDisposable
         _profile.SetLanguagePack(
             LanguagePackManager.Load(_settings.SelectedLanguagePack));
 
-        _advancedShortcut = new AdvancedShortcutController();
-
-        _advancedShortcut.Configure(
-            _settings.AdvancedKey1,
-            _settings.AdvancedKey2);
-
-        _advancedShortcut.Enabled =
-            _settings.ShortcutMode.Equals(
-                "Advanced",
-                StringComparison.OrdinalIgnoreCase);
         _overlay.SetPredictionClickHandler(Accept);
         _caretTimer = new DispatcherTimer
         {
@@ -121,7 +105,7 @@ internal sealed class TypingEngine : IDisposable
 
         _predictionRefreshTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(45L)
+            Interval = TimeSpan.FromMilliseconds(30L)
         };
         _predictionRefreshTimer.Tick += delegate
         {
@@ -140,7 +124,10 @@ internal sealed class TypingEngine : IDisposable
                 _profile.Save();
         };
 
-        _hookCallback = HookCallback;
+        _inputThread = new InputHookThread(
+            _settings,
+            _caretTimer.Dispatcher,
+            HandleInputEvent);
     }
 
     public void Start()
@@ -148,23 +135,15 @@ internal sealed class TypingEngine : IDisposable
         if (IsRunning)
             return;
 
-        using Process process = Process.GetCurrentProcess();
-        using ProcessModule module = process.MainModule;
-
-        _hook = Native.SetWindowsHookEx(
-            13,
-            _hookCallback,
-            Native.GetModuleHandle(module.ModuleName),
-            0u);
-
-        if (_hook == IntPtr.Zero)
-        {
-            throw new InvalidOperationException(
-                "Windows could not start the keyboard listener.");
-        }
-
+        _inputThread.Start();
         IsRunning = true;
         IsPaused = false;
+        _inputThread.SetPaused(false);
+        _inputThread.Configure(
+            _settings.AdvancedKey1,
+            _settings.AdvancedKey2,
+            _settings.ShortcutMode);
+
         _overlay.ShowOverlay();
         _caretTimer.Start();
         _profileSaveTimer.Start();
@@ -174,32 +153,29 @@ internal sealed class TypingEngine : IDisposable
 
     public void Stop()
     {
-        if (IsRunning)
-        {
-            _caretTimer.Stop();
-            _predictionRefreshTimer.Stop();
-            _profileSaveTimer.Stop();
-            if (_profile.IsDirty)
-                _profile.Save();
-            if (_hook != IntPtr.Zero)
-            {
-                Native.UnhookWindowsHookEx(_hook);
-            }
-            _hook = IntPtr.Zero;
-            _current = "";
-            _controlDown = false;
-            _altDown = false;
-            _shiftDown = false;
-            _advancedShortcut.Reset();
-            ClearPendingPrediction();
-            _pendingBoundaryShortcutKey = -1;
-            _refreshAfterBoundary = false;
-            _candidates = new List<SuggestionCandidate>();
-            IsRunning = false;
-            IsPaused = false;
-            _overlay.HideOverlay();
-            StateChanged?.Invoke();
-        }
+        if (!IsRunning)
+            return;
+
+        _caretTimer.Stop();
+        _predictionRefreshTimer.Stop();
+        _profileSaveTimer.Stop();
+
+        if (_profile.IsDirty)
+            _profile.Save();
+
+        _inputThread.Stop();
+
+        _current = "";
+        _controlDown = false;
+        _altDown = false;
+        _shiftDown = false;
+        ClearPendingPrediction();
+        _refreshAfterBoundary = false;
+        _candidates = new List<SuggestionCandidate>();
+        IsRunning = false;
+        IsPaused = false;
+        _overlay.HideOverlay();
+        StateChanged?.Invoke();
     }
 
     public void TogglePause()
@@ -207,9 +183,12 @@ internal sealed class TypingEngine : IDisposable
         if (IsRunning)
         {
             IsPaused = !IsPaused;
+            _inputThread.SetPaused(IsPaused);
             _current = "";
+            _controlDown = false;
+            _altDown = false;
+            _shiftDown = false;
             _predictionRefreshTimer.Stop();
-            _pendingBoundaryShortcutKey = -1;
             _refreshAfterBoundary = false;
             _candidates = new List<SuggestionCandidate>();
             Refresh();
@@ -219,14 +198,10 @@ internal sealed class TypingEngine : IDisposable
 
     public void ApplySettings()
     {
-        _advancedShortcut.Configure(
+        _inputThread.Configure(
             _settings.AdvancedKey1,
-            _settings.AdvancedKey2);
-
-        _advancedShortcut.Enabled =
-            _settings.ShortcutMode.Equals(
-                "Advanced",
-                StringComparison.OrdinalIgnoreCase);
+            _settings.AdvancedKey2,
+            _settings.ShortcutMode);
 
         _profile.SetLanguagePack(
             LanguagePackManager.Load(_settings.SelectedLanguagePack));
@@ -240,245 +215,121 @@ internal sealed class TypingEngine : IDisposable
         StateChanged?.Invoke();
     }
 
-    private nint HookCallback(int code, nint wParam, nint lParam)
+    private void HandleInputEvent(InputHookEvent input)
     {
-        if (code < 0)
-            return Native.CallNextHookEx(_hook, code, wParam, lParam);
+        if (!IsRunning)
+            return;
 
-        bool isKeyDown = wParam == 0x0100 || wParam == 0x0104;
-        bool isKeyUp = wParam == 0x0101 || wParam == 0x0105;
+        _controlDown = input.ControlDown;
+        _altDown = input.AltDown;
+        _shiftDown = input.ShiftDown;
 
-        if (!isKeyDown && !isKeyUp)
-            return Native.CallNextHookEx(_hook, code, wParam, lParam);
-
-        Native.KBDLLHOOKSTRUCT data =
-            Marshal.PtrToStructure<Native.KBDLLHOOKSTRUCT>(lParam);
-
-        if ((data.flags & Native.LLKHF_INJECTED) != 0)
-            return Native.CallNextHookEx(_hook, code, wParam, lParam);
-
-        int key = (int)data.vkCode;
-
-        // ------------------------------------------------------------
-        // ADVANCED PREDICTION GESTURE
-        // ------------------------------------------------------------
-        //
-        // IMPORTANT:
-        // Advanced gesture handling happens BEFORE UpdateModifierState.
-        //
-        // This is intentional:
-        //
-        // Shift DOWN
-        //     -> let Windows receive Shift DOWN normally
-        //
-        // Alt DOWN
-        //     -> GreyBoard consumes it
-        //
-        // Alt UP
-        //     -> GreyBoard consumes it
-        //
-        // Shift UP
-        //     -> GreyBoard commits prediction,
-        //        BUT Windows MUST still receive Shift UP.
-        //
-        // Otherwise Windows thinks Shift is still physically held.
-        //
-
-        if (_settings.ShortcutMode.Equals(
-                "Advanced",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            bool gestureWasActive =
-                _advancedShortcut.IsGestureActive;
-
-            if (isKeyDown)
-            {
-                AdvancedShortcutController.Action action =
-                    _advancedShortcut.HandleKeyDown(key);
-
-                if (action ==
-                    AdvancedShortcutController.Action.CycleNext)
-                {
-                    CycleAdvancedPrediction();
-
-                    // Consume Key 2 DOWN.
-                    // Windows must not see Alt DOWN.
-                    return 1;
-                }
-            }
-            else if (isKeyUp)
-            {
-                bool wasKey2 =
-                    _advancedShortcut.IsKey2(key);
-                bool key2WasDown =
-                    _advancedShortcut.IsKey2Down;
-
-                bool wasKey1 =
-                    _advancedShortcut.IsKey1(key);
-
-                AdvancedShortcutController.Action action =
-                    _advancedShortcut.HandleKeyUp(key);
-
-                if (wasKey2 && key2WasDown)
-                {
-                    // Consume Key 2 UP.
-                    //
-                    // We consumed Alt DOWN, so Windows must NOT receive
-                    // an unmatched Alt UP.
-                    return 1;
-                }
-
-                if (wasKey1 &&
-                    action ==
-                    AdvancedShortcutController.Action.Commit)
-                {
-                    CommitAdvancedPrediction();
-
-                    // CRITICAL:
-                    //
-                    // DO NOT return 1 here.
-                    //B
-                    // Windows needs to receive the real Shift UP event.
-                    // Otherwise Shift remains logically pressed and every
-                    // following character becomes uppercase.
-                }
-            }
-        }
-
-        // Only update our normal modifier state after Advanced gesture
-        // interception has had the chance to consume the gesture keys.
-        UpdateModifierState(key, isKeyDown, isKeyUp);
-
-        if (isKeyUp && key == _pendingBoundaryShortcutKey)
-        {
-            int boundaryShortcutKey = _pendingBoundaryShortcutKey;
-            _pendingBoundaryShortcutKey = -1;
-
-            _caretTimer.Dispatcher.BeginInvoke(
-                DispatcherPriority.Input,
-                new Action(() =>
-                {
-                    if (IsPaused)
-                        return;
-
-                    RefreshFromActiveCaret();
-                    int? boundaryChoice = PredictionChoice(boundaryShortcutKey);
-
-                    if (!boundaryChoice.HasValue ||
-                        boundaryChoice.Value < 0 ||
-                        boundaryChoice.Value >= _candidates.Count)
-                        return;
-
-                    SnapshotPredictionForAcceptance(boundaryShortcutKey, boundaryChoice.Value);
-                    CompletePendingPredictionAcceptance();
-                }));
-
-            return 1;
-        }
-
-        if (isKeyUp &&
-            key == _pendingShortcutKey &&
-            _pendingPredictionIndex >= 0)
-        {
-            _pendingShortcutKeyUpReceived = true;
-
-            if (!_controlDown && !_altDown && !_shiftDown)
-                CompletePendingPredictionAcceptance();
-
-            return 1;
-        }
-
-        if (isKeyUp &&
-            _pendingPredictionIndex >= 0 &&
-            _pendingShortcutKeyUpReceived &&
-            (key == 16 || key == 160 || key == 161 ||
-             key == 17 || key == 162 || key == 163 ||
-             key == 18 || key == 164 || key == 165))
-        {
-            if (!_controlDown && !_altDown && !_shiftDown)
-                CompletePendingPredictionAcceptance();
-        }
-
-        if (isKeyUp && key == _consumedNavigationKey)
-        {
-            _consumedNavigationKey = -1;
-            return 1;
-        }
-
-        if (!isKeyDown)
-            return Native.CallNextHookEx(_hook, code, wParam, lParam);
-
-        if (Shortcut.Matches(
-                _settings.PauseShortcut,
-                key,
-                _controlDown,
-                _altDown,
-                _shiftDown))
+        if (input.Kind == InputHookEventKind.TogglePause)
         {
             TogglePause();
-            return 1;
+            return;
         }
 
-        if (IsPaused)
-            return Native.CallNextHookEx(_hook, code, wParam, lParam);
-
-        // Space is handled before the target application receives it. If the
-        // user immediately presses a Classic prediction shortcut, defer that
-        // shortcut until its key-up, then reacquire the post-Space caret.
-        if (_refreshAfterBoundary && IsPredictionShortcut(key))
+        if (input.Kind == InputHookEventKind.AdvancedCycle)
         {
-            _pendingBoundaryShortcutKey = key;
-            _refreshAfterBoundary = false;
-            return 1;
+            CycleAdvancedPrediction();
+            return;
         }
 
-        int? choice = PredictionChoice(key);
-
-        if (choice.HasValue &&
-            choice.Value >= 0 &&
-            choice.Value < _candidates.Count)
+        if (input.Kind == InputHookEventKind.AdvancedCommit)
         {
-            SnapshotPredictionForAcceptance(key, choice.Value);
-
-            return 1;
+            CommitAdvancedPrediction();
+            return;
         }
 
-        if (key == Native.VK_BACK)
+        if (input.Kind == InputHookEventKind.PredictionShortcutDown)
+        {
+            if (IsPaused)
+                return;
+
+            int? choice = PredictionChoice(input.Key);
+            if (choice.HasValue &&
+                choice.Value >= 0 &&
+                choice.Value < _candidates.Count)
+            {
+                SnapshotPredictionForAcceptance(
+                    input.Key,
+                    choice.Value);
+            }
+
+            return;
+        }
+
+        if (input.Kind == InputHookEventKind.PredictionShortcutUp)
+        {
+            if (_pendingPredictionIndex < 0)
+                return;
+
+            _pendingShortcutKeyUpReceived = true;
+
+            if (!input.ControlDown &&
+                !input.AltDown &&
+                !input.ShiftDown)
+            {
+                CompletePendingPredictionAcceptance();
+            }
+
+            return;
+        }
+
+        if (input.Kind == InputHookEventKind.PredictionShortcutCommitReady)
+        {
+            if (_pendingPredictionIndex >= 0)
+                CompletePendingPredictionAcceptance();
+
+            return;
+        }
+
+        if (input.Kind == InputHookEventKind.Boundary)
+        {
+            HandleBoundaryAfterInput(input.Key);
+            return;
+        }
+
+        if (input.Kind == InputHookEventKind.Backspace)
         {
             SchedulePredictionRefresh();
-            return Native.CallNextHookEx(_hook, code, wParam, lParam);
+            return;
         }
 
-        bool boundary =
-            key == Native.VK_SPACE ||
-            key == Native.VK_RETURN ||
-            key == 186 ||
-            key == 188 ||
-            key == 190 ||
-            key == 191;
-
-        if (boundary)
+        if (input.Kind == InputHookEventKind.NormalKeyDown)
         {
-            if (key == Native.VK_SPACE &&
-                Native.TryGetActiveTextContext(
-                    out Native.ActiveTextContext context))
+            if (!IsPaused && !IsModifierKey(input.Key))
+                SchedulePredictionRefresh();
+        }
+    }
+
+    private void HandleBoundaryAfterInput(int key)
+    {
+        if (IsPaused)
+            return;
+
+        if (key == Native.VK_SPACE &&
+            Native.TryGetActiveTextContext(
+                out Native.ActiveTextContext context))
+        {
+            string typed = context.Word;
+            _current = typed;
+            _previous = context.PreviousWord;
+            _recentContext = context.RecentContext;
+
+            if (!string.IsNullOrWhiteSpace(typed) &&
+                !_settings.IsProtectedWord(typed) &&
+                !_profile.IsKnownWord(typed))
             {
-                string typed = context.Word;
-                _current = typed;
-                _previous = context.PreviousWord;
-                _recentContext = context.RecentContext;
+                string? correction = FindAutocorrect();
 
-                if (!string.IsNullOrWhiteSpace(typed) &&
-                    !_settings.IsProtectedWord(typed) &&
-                    !_profile.IsKnownWord(typed))
+                if (correction != null &&
+                    !correction.Equals(
+                        typed,
+                        StringComparison.OrdinalIgnoreCase))
                 {
-                    string? correction = FindAutocorrect();
-
-                    if (correction != null &&
-                        !correction.Equals(
-                            typed,
-                            StringComparison.OrdinalIgnoreCase) &&
-                        Native.ReplaceActiveWord(correction))
+                    if (Native.ReplaceActiveWord(correction))
                     {
                         _settings.RecordAutocorrection(
                             typed,
@@ -486,31 +337,14 @@ internal sealed class TypingEngine : IDisposable
 
                         _current = correction;
                         Commit(correction);
-
-                        return Native.CallNextHookEx(
-                            _hook,
-                            code,
-                            wParam,
-                            lParam);
                     }
                 }
             }
-
-            Commit(_current);
-            _refreshAfterBoundary = true;
-            SchedulePredictionRefresh();
-
-            return Native.CallNextHookEx(
-                _hook,
-                code,
-                wParam,
-                lParam);
         }
 
-        if (isKeyDown && !IsModifierKey(key))
-            SchedulePredictionRefresh();
-
-        return Native.CallNextHookEx(_hook, code, wParam, lParam);
+        Commit(_current);
+        _refreshAfterBoundary = true;
+        SchedulePredictionRefresh();
     }
 
     private bool IsModifierKey(int key)
@@ -518,13 +352,6 @@ internal sealed class TypingEngine : IDisposable
         return key == 16 || key == 17 || key == 18 ||
                key == 160 || key == 161 || key == 162 || key == 163 ||
                key == 164 || key == 165;
-    }
-
-    private bool IsPredictionShortcut(int key)
-    {
-        return Shortcut.Matches(_settings.AcceptFirst, key, _controlDown, _altDown, _shiftDown) ||
-               Shortcut.Matches(_settings.AcceptSecond, key, _controlDown, _altDown, _shiftDown) ||
-               Shortcut.Matches(_settings.AcceptThird, key, _controlDown, _altDown, _shiftDown);
     }
 
     private void SnapshotPredictionForAcceptance(int key, int index)
@@ -1093,21 +920,48 @@ internal sealed class TypingEngine : IDisposable
             .Take(3)
             .ToList();
 
-        // The prediction bar is a three-slot control. Never present a partial
-        // prediction set during normal typing. The prediction engine is given
-        // a chance to produce three candidates; if it cannot, keep the current
-        // UI hidden rather than showing an empty/partial bar.
+        // The prediction strip should not disappear just because one refresh
+        // produced too few prefix candidates. The language model has a bounded
+        // local fallback; use it to fill the remaining slots.
         if (!IsPaused && normalized.Count < 3)
         {
-            DiagnosticLog(
-                $"RENDER_INCOMPLETE_PREDICTIONS count={normalized.Count}; hiding-partial-bar");
-            _candidates = normalized;
-            _selectedPredictionIndex = -1;
-            _overlay.Render(
-                Array.Empty<string>(),
-                false,
-                -1);
-            return;
+            HashSet<string> existing = new(
+                normalized.Select(x => x.Word),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (SuggestionCandidate candidate in
+                _profile.CandidateModels(
+                    _previous,
+                    string.Empty,
+                    _recentContext))
+            {
+                if (!existing.Add(candidate.Word))
+                    continue;
+
+                normalized.Add(candidate);
+
+                if (normalized.Count >= 3)
+                    break;
+            }
+
+            normalized = normalized
+                .OrderByDescending(x => x.Score)
+                .ThenBy(x => x.Word.Length)
+                .ThenBy(x => x.Word, StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .ToList();
+        }
+
+        if (!IsPaused &&
+            normalized.Count == 0 &&
+            _candidates.Count > 0)
+        {
+            // Preserve the last valid set during a transient model/context
+            // miss. This avoids flicker and blank frames while typing.
+            normalized = _candidates
+                .Where(x => !string.IsNullOrWhiteSpace(x.Word))
+                .Take(3)
+                .ToList();
         }
 
         _candidates = normalized;
@@ -1266,12 +1120,6 @@ internal sealed class TypingEngine : IDisposable
         List<string> words = _candidates
             .Select(candidate => candidate.Word)
             .ToList();
-
-        Debug.WriteLine(
-            "[RANK] " + string.Join(
-                " | ",
-                _candidates.Select(candidate =>
-                    $"{candidate.Word}:{candidate.Score}:{candidate.Kind}")));
 
         RenderCandidates();
     }

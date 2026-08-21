@@ -1,16 +1,7 @@
-GreyBoard Local Prediction - FIXED replacement files
+GreyBoard v10 corrected
 
-Replace:
-- TypingEngine.cs
-- LanguageProfile.cs
-- Native.cs
-- UserSettings.cs
-- Program.cs
-- SettingsWindow.cs
+Replace TypeSenseOverlay/TypingEngine.cs and TypeSenseOverlay/Native.cs.
+The Native.cs accidental System.Threading. fragments before SendVirtualKey and
+SendUnicodeText have been removed. Structural checks passed.
 
-Important compile fix:
-TypingEngine.cs now exposes the public Start() method expected by ControlCenter.
-The existing constructor-start behavior is preserved, while Start() is also idempotent
-and supports restarting after Stop().
-
-Do NOT restore OllamaSuggestionService.cs, AIEnhanceService.cs, or EnhanceOverlay.cs.
+Clean Solution, then Rebuild Solution. Do not push until Error List shows 0 errors.

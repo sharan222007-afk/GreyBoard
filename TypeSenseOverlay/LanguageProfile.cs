@@ -10,120 +10,131 @@ internal sealed class LanguageProfile
 {
     private static readonly string[] Defaults =
     {
-        "the", "to", "and", "I", "you", "a", "is", "it", "that", "for",
-        "with", "this", "my", "on", "we", "have", "just", "really", "would", "love",
-        "your", "in", "of", "hello", "help", "helpful", "good", "great", "going", "go",
-        "come", "coming", "what", "when", "where", "why", "how", "who", "which",
-        "can", "could", "will", "should", "shall", "do", "does", "did", "done", "doing",
-        "am", "are", "was", "were", "be", "been", "being", "he", "she", "they", "them",
-        "his", "her", "their", "me", "us", "our", "not", "no", "yes", "okay", "ok",
-        "please", "thanks", "thank", "sorry", "today", "tomorrow", "yesterday", "now", "later",
-        "here", "there", "home", "work", "time", "want", "need", "like", "know", "think",
-        "see", "look", "tell", "say", "said", "make", "made", "take", "give", "get", "got",
-        "came", "went", "one", "two", "three", "first", "last", "new", "old", "more", "most",
-        "some", "very", "only", "also", "even", "because", "before", "after", "about", "from",
-        "into", "without", "computer", "phone", "message", "friend", "family", "college", "school",
-        "student", "learn", "learning", "programming", "project", "meeting"
+        "the","to","and","I","you","a","is","it","that","for","with","this","my","on","we","have",
+        "just","really","would","love","your","in","of","hello","help","helpful","good","great",
+        "going","go","come","coming","what","when","where","why","how","who","which","can","could",
+        "will","should","shall","do","does","did","done","doing","am","are","was","were","be","been",
+        "being","he","she","they","them","his","her","their","me","us","our","not","no","yes","okay",
+        "ok","please","thanks","thank","sorry","today","tomorrow","yesterday","now","later","here",
+        "there","home","work","time","want","need","like","know","think","see","look","tell","say",
+        "said","make","made","take","give","get","got","came","went","one","two","three","first",
+        "last","new","old","more","most","some","very","only","also","even","because","before",
+        "after","about","from","into","without","computer","phone","message","friend","family",
+        "college","school","student","learn","learning","programming","project","meeting",
+        "suit","suitable","suitability","suitably","suited","suits","suiting","suggest","suggestion",
+        "suggestions","complete","completion","different","important","possible","problem","question",
+        "answer","sure","maybe","always","never","already","again","together","around","under",
+        "between","during","every","each","both","many","better","best","next","something","someone",
+        "anything","everything","nothing","everyone","people","place","person","thing","things",
+        "market","house","store","message","start","finish","study","call","check","send","feel",
+        "right","wrong","easy","hard","ready","happy","sorry"
     };
 
     private static readonly string[] RomanTelugu =
     {
-        "em", "enti", "ela", "unnav", "chesthunnav", "thinnava", "bagunnava", "bagunna", "nenu", "nuvvu",
-        "meeru", "avunu", "kadu", "kaadu", "ledu", "sare", "inka", "ippudu", "vellava", "vastava",
-        "vachava", "emaina", "cheppu", "naaku", "neeku", "enduku", "ekkada", "eppudu", "aithe", "chesa",
-        "chesanu", "chesav", "chesaru", "chestha", "chesthanu", "chestunnanu", "chestunnav", "chestunnaru", "thinnanu", "thinnav"
+        "em","enti","ela","unnav","chesthunnav","thinnava","bagunnava","bagunna","nenu","nuvvu",
+        "meeru","avunu","kadu","kaadu","ledu","sare","inka","ippudu","vellava","vastava","vachava",
+        "emaina","cheppu","naaku","neeku","enduku","ekkada","eppudu","aithe","chesa","chesanu",
+        "chesav","chesaru","chestha","chesthanu","chestunnanu","chestunnav","chestunnaru","thinnanu",
+        "thinnav","vellali","velthunna","velthunnanu","vastunnanu","vastunna","ivala","repu",
+        "ninna","manchi","baaga","leduga","avunu","kaavali","kaadu","enti","enduku","ela"
     };
 
-    // A compact local frequency prior. The language pack supplies coverage;
-    // this list supplies a useful cold-start ordering without a cloud model.
     private static readonly string[] CommonWordsOrdered =
     {
-        "the","of","and","to","in","a","is","that","for","it","as","was","with","be","by",
-        "on","not","he","I","this","are","or","his","from","at","which","but","have","an","had",
-        "you","were","their","they","one","all","we","can","her","has","there","been","if","more",
-        "when","will","would","who","so","what","up","about","out","do","like","just","time","into",
-        "than","could","our","my","your","me","good","new","some","very","them","these","then","now",
-        "people","also","only","other","how","want","because","well","make","over","think","see","know",
-        "take","come","go","look","use","find","give","need","tell","work","should","try","ask","feel",
-        "really","right","back","much","where","help","before","great","through","life","first","last",
-        "long","little","same","another","while","day","still","here","something","anything","everything",
+        "the","of","and","to","in","a","is","that","for","it","as","was","with","be","by","on","not",
+        "he","I","this","are","or","his","from","at","which","but","have","an","had","you","were",
+        "their","they","one","all","we","can","her","has","there","been","if","more","when","will",
+        "would","who","so","what","up","about","out","do","like","just","time","into","than","could",
+        "our","my","your","me","good","new","some","very","them","these","then","now","people","also",
+        "only","other","how","want","because","well","make","over","think","see","know","take","come",
+        "go","look","use","find","give","need","tell","work","should","try","ask","feel","really",
+        "right","back","much","where","help","before","great","through","life","first","last","long",
+        "little","same","another","while","day","still","here","something","anything","everything",
         "nothing","please","thanks","thank","sorry","hello","today","tomorrow","later","home","school",
         "college","student","learn","learning","computer","phone","message","friend","family","project",
-        "meeting","programming","different","important","possible","problem","question","answer","sure","maybe",
-        "always","never","already","again","together","around","after","before","under","without","between",
-        "during","every","each","both","many","most","another","better","best","next","last","first",
-        "suitable","suitability","suitably","computer","complete","completion","suggest","suggestion","suggestions",
-        "because","different","definitely","receive","separate","something","someone","anything","everyone"
+        "meeting","programming","different","important","possible","problem","question","answer","sure",
+        "maybe","always","never","already","again","together","around","after","under","without",
+        "between","during","every","each","both","many","most","better","best","next","complete",
+        "completion","suggest","suggestion","suggestions","suitable","suitability","suitably","suited",
+        "suits","suiting","someone","everyone"
     };
 
     private static readonly Dictionary<string, int> CommonFrequency =
         BuildFrequencyMap(CommonWordsOrdered);
 
-    // Cold-start contextual priors. These are deliberately small and local;
-    // learned ContextNext entries take precedence as the user types.
     private static readonly Dictionary<string, Dictionary<string, int>> SeedContexts =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["i"] = Map("am:120", "want:90", "will:70", "can:65", "have:60", "need:55", "like:50", "think:45", "was:35"),
-            ["i\u001fwant"] = Map("to:150"),
-            ["i\u001fam"] = Map("going:120", "a:65", "not:55", "really:45", "looking:40"),
-            ["i\u001fneed"] = Map("to:140", "a:70", "some:50", "help:45"),
-            ["i\u001fwould"] = Map("like:130", "love:90", "be:70"),
-            ["i\u001fwant\u001fto"] = Map("go:110", "learn:105", "know:80", "make:70", "get:65", "see:55"),
-            ["i\u001fam\u001fgoing"] = Map("to:150"),
-            ["going\u001fto"] = Map("the:100", "college:80", "school:70", "work:65", "go:45", "be:40"),
-            ["want\u001fto"] = Map("learn:100", "go:95", "know:70", "make:60", "get:60", "see:50"),
-            ["need\u001fto"] = Map("go:85", "get:85", "find:75", "know:60", "make:55"),
-            ["looking\u001ffor"] = Map("a:120", "the:90", "some:65", "my:50"),
-            ["how\u001fare"] = Map("you:160", "things:60"),
-            ["thank\u001fyou"] = Map("for:150", "so:80"),
-            ["see\u001fyou"] = Map("soon:100", "tomorrow:85", "there:60", "again:55"),
-            ["can\u001fyou"] = Map("help:125", "please:105", "tell:90", "give:80", "send:70"),
-            ["could\u001fyou"] = Map("please:130", "help:115", "tell:90", "send:75"),
-            ["please\u001fhelp"] = Map("me:140", "with:95"),
-            ["what\u001fis"] = Map("the:120", "this:80", "that:70"),
-            ["where\u001fis"] = Map("the:120", "it:85", "my:65"),
-            ["there\u001fis"] = Map("a:125", "no:70", "nothing:45"),
-            ["it\u001fis"] = Map("a:105", "not:80", "the:70", "really:55"),
-            ["i\u001flike"] = Map("to:115", "the:80", "this:70", "it:60"),
-            ["i\u001fthink"] = Map("that:120", "it:75", "the:60", "we:55"),
-            ["i\u001fknow"] = Map("that:110", "the:70", "it:65", "you:55"),
-            ["nenu"] = Map("bagunna:120", "chesthunnanu:90", "velthunnanu:80"),
-            ["nuvvu"] = Map("ela:120", "em:85", "ekkada:65", "unnav:60"),
-            ["ela\u001funnav"] = Map("ippudu:60", "ivala:50")
+            ["i"] = Map("am:140","want:110","will:90","can:80","have:70","need:65","like:60","think:55","was:35"),
+            ["i\u001fwant"] = Map("to:180"),
+            ["i\u001fam"] = Map("going:150","a:70","not:60","really:50","looking:45"),
+            ["i\u001fneed"] = Map("to:160","a:80","some:60","help:55"),
+            ["i\u001fwould"] = Map("like:150","love:100","be:75"),
+            ["i\u001fwant\u001fto"] = Map("go:130","learn:120","know:95","make:85","get:80","see:70"),
+            ["i\u001fam\u001fgoing"] = Map("to:180"),
+            ["going\u001fto"] = Map("the:120","college:100","school:90","work:85","go:60","be:50"),
+            ["want\u001fto"] = Map("learn:120","go:110","know:85","make:75","get:70","see:60"),
+            ["need\u001fto"] = Map("go:100","get:95","find:90","know:75","make:65"),
+            ["looking\u001ffor"] = Map("a:140","the:100","some:75","my:60"),
+            ["how\u001fare"] = Map("you:180","things:65"),
+            ["thank\u001fyou"] = Map("for:170","so:90"),
+            ["see\u001fyou"] = Map("soon:120","tomorrow:100","there:75","again:65"),
+            ["can\u001fyou"] = Map("help:150","please:125","tell:105","give:95","send:85"),
+            ["could\u001fyou"] = Map("please:150","help:135","tell:105","send:90"),
+            ["please\u001fhelp"] = Map("me:160","with:110"),
+            ["what\u001fis"] = Map("the:140","this:90","that:80"),
+            ["where\u001fis"] = Map("the:140","it:95","my:75"),
+            ["there\u001fis"] = Map("a:145","no:75","nothing:55"),
+            ["it\u001fis"] = Map("a:125","not:90","the:80","really:65"),
+            ["i\u001flike"] = Map("to:135","the:90","this:80","it:70"),
+            ["i\u001fthink"] = Map("that:140","it:90","the:75","we:65"),
+            ["i\u001fknow"] = Map("that:130","the:80","it:75","you:65"),
+            ["nenu"] = Map("bagunna:150","chesthunnanu:120","velthunnanu:110","vellali:90"),
+            ["nuvvu"] = Map("ela:150","em:105","ekkada:85","unnav:75"),
+            ["ela\u001funnav"] = Map("ippudu:85","ivala:70","baaga:65"),
+            ["nenu\u001fcollege"] = Map("ki:100","lo:70"),
+            ["college\u001fki"] = Map("vellali:130","velthunna:105","velthunnanu:90"),
+            ["nenu\u001fcollege\u001fki"] = Map("vellali:160","velthunna:120","velthunnanu:100")
         };
 
     private static readonly Dictionary<string, int> SeedPairs =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["em|chesthunnav"] = 80,
-            ["em|enti"] = 64,
-            ["chesthunnav|thinnava"] = 72,
-            ["nuvvu|ela"] = 56,
-            ["ela|unnav"] = 68,
-            ["bagunnava|nuvvu"] = 52,
-            ["nenu|bagunna"] = 50
+            ["em|chesthunnav"] = 90,
+            ["em|enti"] = 70,
+            ["chesthunnav|thinnava"] = 80,
+            ["nuvvu|ela"] = 65,
+            ["ela|unnav"] = 75,
+            ["bagunnava|nuvvu"] = 60,
+            ["nenu|bagunna"] = 65
         };
 
     private static readonly HashSet<string> CommonVerbs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "go", "get", "give", "make", "take", "learn", "know", "see", "come", "tell",
-        "help", "find", "use", "try", "ask", "send", "call", "check", "start", "finish",
-        "do", "be", "have", "want", "need", "like", "love", "look", "work", "study"
+        "go","get","give","make","take","learn","know","see","come","tell","help","find","use","try",
+        "ask","send","call","check","start","finish","do","be","have","want","need","like","love",
+        "look","work","study","learn","complete"
     };
 
     private static readonly HashSet<string> CommonNouns = new(StringComparer.OrdinalIgnoreCase)
     {
-        "the", "college", "school", "work", "home", "house", "store", "market", "computer",
-        "phone", "message", "project", "meeting", "problem", "question", "answer", "time",
-        "day", "place", "person", "student", "friend", "family", "world", "thing", "things"
+        "college","school","work","home","house","store","market","computer","phone","message",
+        "project","meeting","problem","question","answer","time","day","place","person","student",
+        "friend","family","world","thing","things","completion","suggestion"
     };
 
     private static readonly HashSet<string> CommonAdjectives = new(StringComparer.OrdinalIgnoreCase)
     {
-        "good", "great", "bad", "new", "old", "different", "important", "possible", "sure",
-        "ready", "happy", "sorry", "better", "best", "right", "wrong", "easy", "hard"
+        "good","great","bad","new","old","different","important","possible","sure","ready","happy",
+        "sorry","better","best","right","wrong","easy","hard","suitable","complete"
     };
+
+    private static readonly HashSet<string> DefaultSet =
+        new(Defaults, StringComparer.OrdinalIgnoreCase);
+
+    private static readonly HashSet<string> RomanTeluguSet =
+        new(RomanTelugu, StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, int> Words { get; init; } =
         new(StringComparer.OrdinalIgnoreCase);
@@ -134,16 +145,11 @@ internal sealed class LanguageProfile
     public Dictionary<string, Dictionary<string, int>> ContextNext { get; init; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly HashSet<string> DefaultSet =
-        new(Defaults, StringComparer.OrdinalIgnoreCase);
-
-    private static readonly HashSet<string> RomanTeluguSet =
-        new(RomanTelugu, StringComparer.OrdinalIgnoreCase);
-
     private List<string> _packVocabulary = new();
     private List<string>? _vocabularyCache;
     private HashSet<string>? _vocabularySet;
     private Dictionary<string, List<string>>? _prefixBuckets;
+    private List<string>? _learnedHotWords;
     private Dictionary<string, string> _autocorrect =
         new(StringComparer.OrdinalIgnoreCase);
     private string _languageName = "English";
@@ -168,6 +174,7 @@ internal sealed class LanguageProfile
                 ?? new LanguageProfile();
 
             profile.InvalidateVocabularyIndex();
+            profile._learnedHotWords = null;
             profile._dirty = false;
             return profile;
         }
@@ -179,9 +186,7 @@ internal sealed class LanguageProfile
 
     public void SetLanguagePack(LanguagePack? pack)
     {
-        string nextName = pack?.Name ?? "English";
-
-        _languageName = nextName;
+        _languageName = pack?.Name ?? "English";
         _autocorrect = pack?.Autocorrect != null
             ? new Dictionary<string, string>(pack.Autocorrect, StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -200,23 +205,19 @@ internal sealed class LanguageProfile
         _vocabularyCache = null;
         _vocabularySet = null;
         _prefixBuckets = null;
+        _learnedHotWords = null;
     }
 
     private void EnsureVocabularyIndex()
     {
         if (_vocabularyCache != null &&
             _vocabularySet != null &&
-            _prefixBuckets != null)
+            _prefixBuckets != null &&
+            _learnedHotWords != null)
             return;
 
-        // The language pack is the main vocabulary, but it must not be the
-        // only source used by the completion index.  CommonWordsOrdered and
-        // the built-in defaults are deliberately indexed too; otherwise a
-        // valid word can exist in the local frequency model yet be invisible
-        // to prefix completion.
         IEnumerable<string> extraWords =
-            _languageName.Contains("Telugu", StringComparison.OrdinalIgnoreCase) ||
-            _languageName.Contains("Tenglish", StringComparison.OrdinalIgnoreCase)
+            IsRomanLanguage()
                 ? RomanTelugu
                 : Array.Empty<string>();
 
@@ -229,15 +230,18 @@ internal sealed class LanguageProfile
             .Where(IsUsableWord)
             .ToList();
 
-        _vocabularySet = new HashSet<string>(
-            _vocabularyCache,
-            StringComparer.OrdinalIgnoreCase);
-
-        _prefixBuckets = new Dictionary<string, List<string>>(
-            StringComparer.OrdinalIgnoreCase);
+        _vocabularySet = new HashSet<string>(_vocabularyCache, StringComparer.OrdinalIgnoreCase);
+        _prefixBuckets = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (string word in _vocabularyCache)
             AddWordToPrefixIndex(word);
+
+        _learnedHotWords = Words
+            .Where(x => IsUsableWord(x.Key))
+            .OrderByDescending(x => x.Value)
+            .Take(160)
+            .Select(x => x.Key)
+            .ToList();
     }
 
     private void AddWordToPrefixIndex(string word)
@@ -245,19 +249,23 @@ internal sealed class LanguageProfile
         if (_prefixBuckets == null || string.IsNullOrWhiteSpace(word))
             return;
 
-        string normalized = word.ToLowerInvariant();
-        int maxPrefix = Math.Min(3, normalized.Length);
+        string normalized = word.Trim().ToLowerInvariant();
+        // Long prefixes need their own buckets. Indexing up to 12 characters
+        // keeps lookups tiny for normal typing while avoiding a full-vocabulary
+        // scan for prefixes such as "suitabilit".
+        int maxPrefix = Math.Min(12, normalized.Length);
 
         for (int length = 1; length <= maxPrefix; length++)
         {
-            string prefix = normalized.Substring(0, length);
+            string prefix = normalized[..length];
+
             if (!_prefixBuckets.TryGetValue(prefix, out List<string>? bucket))
             {
                 bucket = new List<string>();
                 _prefixBuckets[prefix] = bucket;
             }
 
-            bucket.Add(word);
+            bucket.Add(word.Trim());
         }
     }
 
@@ -267,30 +275,101 @@ internal sealed class LanguageProfile
             return false;
 
         word = word.Trim();
+
         if (word.Length < 2 || word.Length > 48)
             return false;
 
         return word.All(c => char.IsLetter(c) || c == '\'' || c == '-');
     }
 
+    private bool IsRomanLanguage() =>
+        _languageName.Contains("Telugu", StringComparison.OrdinalIgnoreCase) ||
+        _languageName.Contains("Tenglish", StringComparison.OrdinalIgnoreCase);
+
     private IReadOnlyList<string> GetCandidatesForPrefix(string prefix)
     {
         EnsureVocabularyIndex();
 
-        if (string.IsNullOrWhiteSpace(prefix))
+        string normalized = prefix.Trim().ToLowerInvariant();
+
+        if (normalized.Length == 0)
             return _vocabularyCache!;
 
-        string normalized = prefix.Trim().ToLowerInvariant();
-        string bucketKey = normalized.Substring(0, Math.Min(3, normalized.Length));
+        string key = normalized[..Math.Min(12, normalized.Length)];
 
-        if (_prefixBuckets!.TryGetValue(bucketKey, out List<string>? bucket))
+        if (_prefixBuckets!.TryGetValue(key, out List<string>? bucket))
             return bucket;
 
-        // Rare fallback: protects against a stale/malformed index and keeps
-        // completion functional even when the prefix bucket was not built.
-        return _vocabularyCache!
-            .Where(word => word.StartsWith(normalized, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+        return Array.Empty<string>();
+    }
+
+    private List<string> GetFuzzyPrefixCandidates(string prefix, int maxPool = 96)
+    {
+        EnsureVocabularyIndex();
+
+        string normalized = prefix.Trim().ToLowerInvariant();
+        if (normalized.Length < 3)
+            return new List<string>();
+
+        int keyLength = Math.Min(3, normalized.Length);
+        string key = normalized[..keyLength];
+
+        HashSet<string> keys = new(StringComparer.OrdinalIgnoreCase);
+
+        // Keep the exact short-prefix bucket in the fuzzy pool. This is
+        // essential for long typoed prefixes such as "suitabili".
+        keys.Add(key);
+
+        // Internal adjacent transposition, e.g. "nistable" -> "instable".
+        for (int i = 0; i < key.Length - 1; i++)
+        {
+            char[] chars = key.ToCharArray();
+            (chars[i], chars[i + 1]) = (chars[i + 1], chars[i]);
+            keys.Add(new string(chars));
+        }
+
+        // One-character deletion from the prefix, useful for an accidental
+        // duplicated character such as "suuita" -> "suitable".
+        for (int i = 0; i < key.Length; i++)
+            keys.Add(key.Remove(i, 1));
+
+        // One-character replacement in the short prefix. This is deliberately
+        // limited to the first three characters, keeping the lookup bounded.
+        const string alphabet = "abcdefghijklmnopqrstuvwxyz";
+        for (int i = 0; i < key.Length; i++)
+        {
+            foreach (char replacement in alphabet)
+            {
+                if (replacement == key[i])
+                    continue;
+
+                char[] chars = key.ToCharArray();
+                chars[i] = replacement;
+                keys.Add(new string(chars));
+            }
+        }
+
+        List<string> pool = new(maxPool);
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string candidateKey in keys)
+        {
+            if (!_prefixBuckets!.TryGetValue(candidateKey, out List<string>? bucket))
+                continue;
+
+            foreach (string word in bucket)
+            {
+                if (!seen.Add(word))
+                    continue;
+
+                pool.Add(word);
+
+                if (pool.Count >= maxPool)
+                    return pool;
+            }
+        }
+
+        return pool;
     }
 
     public void Learn(string word, string previous)
@@ -307,8 +386,9 @@ internal sealed class LanguageProfile
         if (!IsUsableWord(word))
             return;
 
-        string normalizedWord = word.Trim().ToLowerInvariant();
-        Words[normalizedWord] = Words.GetValueOrDefault(normalizedWord) + 1;
+        string normalized = word.Trim().ToLowerInvariant();
+
+        Words[normalized] = Words.GetValueOrDefault(normalized) + 1;
 
         List<string> history = recentContext
             .Where(IsUsableWord)
@@ -319,35 +399,32 @@ internal sealed class LanguageProfile
         if (history.Count > 0)
         {
             string previous = history[^1];
-            string pair = previous + "|" + normalizedWord;
+            string pair = previous + "|" + normalized;
             Pairs[pair] = Pairs.GetValueOrDefault(pair) + 1;
         }
 
         for (int length = 1; length <= Math.Min(4, history.Count); length++)
         {
-            string contextKey = BuildContextKey(history.TakeLast(length));
-            if (!ContextNext.TryGetValue(
-                    contextKey,
-                    out Dictionary<string, int>? nextWords))
+            string key = BuildContextKey(history.TakeLast(length));
+
+            if (!ContextNext.TryGetValue(key, out Dictionary<string, int>? next))
             {
-                nextWords = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                ContextNext[contextKey] = nextWords;
+                next = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                ContextNext[key] = next;
             }
 
-            nextWords[normalizedWord] =
-                nextWords.GetValueOrDefault(normalizedWord) + 1;
+            next[normalized] = next.GetValueOrDefault(normalized) + 1;
         }
 
-        // Do not rebuild the 124k-word index on every learned word.
-        if (_vocabularyCache != null &&
-            _vocabularySet != null &&
-            _prefixBuckets != null &&
-            _vocabularySet.Add(normalizedWord))
+        EnsureVocabularyIndex();
+
+        if (_vocabularySet!.Add(normalized))
         {
-            _vocabularyCache.Add(word.Trim());
-            AddWordToPrefixIndex(word.Trim());
+            _vocabularyCache!.Add(normalized);
+            AddWordToPrefixIndex(normalized);
         }
 
+        _learnedHotWords = null;
         _dirty = true;
     }
 
@@ -365,43 +442,41 @@ internal sealed class LanguageProfile
         if (string.IsNullOrWhiteSpace(typed))
             return null;
 
-        return _autocorrect.TryGetValue(
-            typed.Trim(),
-            out string? correction)
-                ? correction
-                : null;
+        return _autocorrect.TryGetValue(typed.Trim(), out string? correction)
+            ? correction
+            : null;
     }
 
     private static Dictionary<string, int> BuildFrequencyMap(IEnumerable<string> words)
     {
-        List<string> list = words
-            .Where(IsUsableWord)
-            .Select(x => x.ToLowerInvariant())
-            .ToList();
-
-        Dictionary<string, int> map =
+        Dictionary<string, int> result =
             new(StringComparer.OrdinalIgnoreCase);
 
-        for (int i = 0; i < list.Count; i++)
+        int rank = 0;
+
+        foreach (string raw in words)
         {
-            int score = Math.Max(18, 240 - (i * 2));
-            map[list[i]] = Math.Max(
-                map.GetValueOrDefault(list[i]),
-                score);
+            if (!IsUsableWord(raw))
+                continue;
+
+            string word = raw.ToLowerInvariant();
+
+            int score = Math.Max(24, 260 - rank * 2);
+            result[word] = Math.Max(result.GetValueOrDefault(word), score);
+
+            rank++;
         }
 
-        // Explicitly keep several high-value completion words strong even
-        // though they occur late in the compact cold-start list.
-        string[] importantWords =
+        foreach (string word in new[]
         {
-            "suitable", "suggestion", "suggestions", "because", "different",
-            "computer", "college", "school", "helpful", "something", "someone"
-        };
+            "suit","suitable","suitability","suitably","suited","suits","suiting",
+            "suggestion","suggestions","helpful","something","someone","everything"
+        })
+        {
+            result[word] = Math.Max(result.GetValueOrDefault(word), 125);
+        }
 
-        foreach (string word in importantWords)
-            map[word] = Math.Max(map.GetValueOrDefault(word), 120);
-
-        return map;
+        return result;
     }
 
     private int GlobalPrior(string word)
@@ -412,23 +487,67 @@ internal sealed class LanguageProfile
         {
             score = word.Length switch
             {
-                <= 2 => 28,
-                3 => 24,
-                4 => 20,
-                5 => 16,
+                <= 2 => 22,
+                3 => 20,
+                4 => 18,
+                5 => 15,
                 6 => 12,
                 _ => 8
             };
         }
 
         if (DefaultSet.Contains(word))
-            score += 30;
+            score += 28;
 
         if (RomanTeluguSet.Contains(word))
-            score += 30;
+            score += 28;
 
-        score += Math.Min(Words.GetValueOrDefault(word) * 10, 240);
+        score += Math.Min(Words.GetValueOrDefault(word) * 12, 300);
         return score;
+    }
+
+    private int ContextScore(IReadOnlyList<string> history, string word)
+    {
+        if (history.Count == 0)
+            return 0;
+
+        int best = 0;
+
+        for (int length = Math.Min(4, history.Count); length >= 1; length--)
+        {
+            string key = BuildContextKey(history.TakeLast(length));
+
+            int seed = 0;
+            if (SeedContexts.TryGetValue(key, out Dictionary<string, int>? seedNext))
+                seed = seedNext.GetValueOrDefault(word);
+
+            int learned = 0;
+            if (ContextNext.TryGetValue(key, out Dictionary<string, int>? learnedNext))
+                learned = learnedNext.GetValueOrDefault(word);
+
+            int combined = seed + Math.Min(learned * 45, 500);
+
+            if (combined > best)
+            {
+                int multiplier = length switch
+                {
+                    4 => 4,
+                    3 => 3,
+                    2 => 2,
+                    _ => 1
+                };
+
+                best = combined * multiplier;
+            }
+        }
+
+        string previous = history[^1];
+        best += Math.Min(
+            Pairs.GetValueOrDefault(previous + "|" + word) * 34,
+            320);
+
+        best += SeedPairs.GetValueOrDefault(previous + "|" + word);
+        return best;
     }
 
     private int HeuristicContextScore(IReadOnlyList<string> history, string word)
@@ -436,31 +555,28 @@ internal sealed class LanguageProfile
         if (history.Count == 0)
             return 0;
 
-        int score = 0;
         string last = history[^1];
-        string previous = history.Count >= 2 ? history[^2] : string.Empty;
+        int score = 0;
 
-        if (last.Equals("to", StringComparison.OrdinalIgnoreCase))
+        if (last.Equals("to", StringComparison.OrdinalIgnoreCase) ||
+            last.Equals("can", StringComparison.OrdinalIgnoreCase) ||
+            last.Equals("will", StringComparison.OrdinalIgnoreCase) ||
+            last.Equals("should", StringComparison.OrdinalIgnoreCase) ||
+            last.Equals("could", StringComparison.OrdinalIgnoreCase))
         {
-            if (previous.Equals("going", StringComparison.OrdinalIgnoreCase) ||
-                previous.Equals("go", StringComparison.OrdinalIgnoreCase))
-            {
-                if (CommonNouns.Contains(word))
-                    score += 70;
-            }
-            else if (CommonVerbs.Contains(word))
-            {
-                score += 55;
-            }
+            if (CommonVerbs.Contains(word))
+                score += 70;
         }
 
         if (last.Equals("the", StringComparison.OrdinalIgnoreCase) ||
             last.Equals("my", StringComparison.OrdinalIgnoreCase) ||
             last.Equals("your", StringComparison.OrdinalIgnoreCase) ||
-            last.Equals("our", StringComparison.OrdinalIgnoreCase))
+            last.Equals("our", StringComparison.OrdinalIgnoreCase) ||
+            last.Equals("a", StringComparison.OrdinalIgnoreCase) ||
+            last.Equals("an", StringComparison.OrdinalIgnoreCase))
         {
-            if (CommonNouns.Contains(word))
-                score += 48;
+            if (CommonNouns.Contains(word) || CommonAdjectives.Contains(word))
+                score += 45;
         }
 
         if (last.Equals("is", StringComparison.OrdinalIgnoreCase) ||
@@ -469,61 +585,13 @@ internal sealed class LanguageProfile
             last.Equals("were", StringComparison.OrdinalIgnoreCase))
         {
             if (CommonAdjectives.Contains(word))
-                score += 52;
+                score += 55;
         }
 
-        if (last.Equals("can", StringComparison.OrdinalIgnoreCase) ||
-            last.Equals("will", StringComparison.OrdinalIgnoreCase) ||
-            last.Equals("should", StringComparison.OrdinalIgnoreCase) ||
-            last.Equals("could", StringComparison.OrdinalIgnoreCase))
+        if (IsRomanLanguage() && RomanTeluguSet.Contains(last))
         {
-            if (CommonVerbs.Contains(word))
-                score += 58;
-        }
-
-        if (last.Equals("a", StringComparison.OrdinalIgnoreCase) ||
-            last.Equals("an", StringComparison.OrdinalIgnoreCase))
-        {
-            if (CommonNouns.Contains(word) || CommonAdjectives.Contains(word))
-                score += 35;
-        }
-
-        return score;
-    }
-
-    private int ContextScore(IReadOnlyList<string> history, string word)
-    {
-        int score = 0;
-
-        for (int length = Math.Min(4, history.Count); length >= 1; length--)
-        {
-            string contextKey = BuildContextKey(history.TakeLast(length));
-
-            if (SeedContexts.TryGetValue(
-                    contextKey,
-                    out Dictionary<string, int>? seedNext))
-            {
-                score += seedNext.GetValueOrDefault(word);
-            }
-
-            if (!ContextNext.TryGetValue(
-                    contextKey,
-                    out Dictionary<string, int>? nextWords))
-                continue;
-
-            int count = nextWords.GetValueOrDefault(word);
-            if (count <= 0)
-                continue;
-
-            int weight = length switch
-            {
-                4 => 110,
-                3 => 90,
-                2 => 65,
-                _ => 38
-            };
-
-            score += Math.Min(count * weight, 600);
+            if (RomanTeluguSet.Contains(word))
+                score += 65;
         }
 
         return score;
@@ -539,22 +607,19 @@ internal sealed class LanguageProfile
         score += ContextScore(history, word);
         score += HeuristicContextScore(history, word);
 
-        string previous = history.Count > 0 ? history[^1] : string.Empty;
-        score += Math.Min(
-            Pairs.GetValueOrDefault(previous + "|" + word) * 28,
-            280);
-        score += SeedPairs.GetValueOrDefault(previous + "|" + word);
-
-        if (completion && !string.IsNullOrWhiteSpace(prefix))
+        if (completion && prefix.Length > 0)
         {
             int prefixLength = prefix.Length;
-            score += Math.Min(prefixLength * 22, 180);
-
             int remaining = Math.Max(0, word.Length - prefixLength);
-            score -= Math.Min(remaining * 3, 42);
+
+            // Strong prefix fidelity. A longer shared prefix should dominate
+            // generic frequency so common words cannot crowd out the user's
+            // actual completion.
+            score += Math.Min(prefixLength * 42, 300);
+            score -= Math.Min(remaining * 2, 34);
 
             if (word.Equals(prefix, StringComparison.OrdinalIgnoreCase))
-                score -= 2000;
+                score -= 5000;
         }
 
         return score;
@@ -566,90 +631,145 @@ internal sealed class LanguageProfile
         string recentContext = "")
     {
         List<string> history = ParseContext(recentContext);
+
         string normalizedPrevious = previous.Trim().ToLowerInvariant();
 
-        // The completed word must be the last context item after Space.
-        // Avoid duplicate insertion when Native already included it.
         if (!string.IsNullOrWhiteSpace(normalizedPrevious) &&
             (history.Count == 0 ||
-             !history[^1].Equals(
-                 normalizedPrevious,
-                 StringComparison.OrdinalIgnoreCase)))
+             !history[^1].Equals(normalizedPrevious, StringComparison.OrdinalIgnoreCase)))
         {
             history.Add(normalizedPrevious);
         }
 
         if (history.Count > 4)
-            history = history.TakeLast(4).ToList();
+            history = history.GetRange(history.Count - 4, 4);
 
         string normalizedPrefix = prefix.Trim();
 
         if (normalizedPrefix.Length == 0)
             return NextWordCandidates(history);
 
-        IReadOnlyList<string> vocabulary =
-            GetCandidatesForPrefix(normalizedPrefix);
+        List<SuggestionCandidate> result = new(8);
+        HashSet<string> seen =
+            new(StringComparer.OrdinalIgnoreCase);
 
-        // Prefix completion is intentionally generated from the cached
-        // vocabulary index. Because the index contains the language pack,
-        // common cold-start vocabulary, Roman-Telugu vocabulary where
-        // applicable, and learned words, short prefixes such as "sui" are
-        // not limited to whatever happened to be present in one pack file.
-        List<SuggestionCandidate> completions = vocabulary
-            .Where(word =>
-                word.StartsWith(
-                    normalizedPrefix,
-                    StringComparison.OrdinalIgnoreCase) &&
-                !word.Equals(
-                    normalizedPrefix,
-                    StringComparison.OrdinalIgnoreCase))
-            .Select(word => new SuggestionCandidate(
-                word,
-                ScoreWord(history, word, normalizedPrefix, true),
-                0,
-                SuggestionKind.Completion))
-            .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.Word.Length)
-            .ThenBy(x => x.Word, StringComparer.OrdinalIgnoreCase)
-            .Take(3)
-            .ToList();
-
-        // A partially typed word can legitimately have only one or two exact
-        // completions. In that case, use strong sentence-context candidates
-        // only as a controlled fallback. This is deliberately conservative:
-        // contextual candidates are admitted only when they have real local
-        // context evidence, and never replace a valid exact completion.
-        if (completions.Count < 3 && history.Count > 0)
+        void AddRealPrefixCandidate(string word, int penalty = 0)
         {
-            HashSet<string> existing = new(
-                completions.Select(x => x.Word),
-                StringComparer.OrdinalIgnoreCase);
+            if (!IsUsableWord(word) ||
+                !word.StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase) ||
+                word.Equals(normalizedPrefix, StringComparison.OrdinalIgnoreCase) ||
+                !seen.Add(word))
+                return;
 
-            foreach (SuggestionCandidate candidate in
-                NextWordCandidates(history)
-                    .Where(x => x.Score >= 75)
-                    .OrderByDescending(x => x.Score))
+            result.Add(new SuggestionCandidate(
+                word,
+                ScoreWord(history, word, normalizedPrefix, true) - penalty,
+                0,
+                SuggestionKind.Completion));
+        }
+
+        // Fast path: exact prefix index.
+        foreach (string word in GetCandidatesForPrefix(normalizedPrefix))
+            AddRealPrefixCandidate(word);
+
+        // Fuzzy path: only when exact candidates are insufficient. Retrieval
+        // is bounded by short prefix buckets; expensive edit distance is never
+        // run over the full vocabulary.
+        if (result.Count < 3 && normalizedPrefix.Length >= 3)
+        {
+            string lowerPrefix = normalizedPrefix.ToLowerInvariant();
+
+            foreach (string word in GetFuzzyPrefixCandidates(normalizedPrefix))
             {
-                if (existing.Contains(candidate.Word) ||
-                    candidate.Word.Equals(
+                string lowerWord = word.ToLowerInvariant();
+
+                // Compare the typed prefix only with the corresponding beginning
+                // of the candidate, not with the candidate's whole suffix.
+                string comparable = lowerWord[..Math.Min(
+                    lowerWord.Length,
+                    lowerPrefix.Length)];
+
+                int distance = DamerauLevenshtein(
+                    lowerPrefix,
+                    comparable);
+
+                int allowedDistance =
+                    lowerPrefix.Length <= 5 ? 1 : 2;
+
+                if (distance <= allowedDistance)
+                {
+                    int typoPenalty = distance * 120;
+
+                    if (word.StartsWith(
                         normalizedPrefix,
                         StringComparison.OrdinalIgnoreCase))
-                    continue;
+                    {
+                        typoPenalty = 0;
+                    }
 
-                completions.Add(
-                    new SuggestionCandidate(
-                        candidate.Word,
-                        candidate.Score - 25,
-                        candidate.EditDistance,
-                        SuggestionKind.Prediction));
+                    if (!seen.Add(word))
+                        continue;
 
-                existing.Add(candidate.Word);
-                if (completions.Count >= 3)
+                    result.Add(new SuggestionCandidate(
+                        word,
+                        ScoreWord(
+                            history,
+                            word,
+                            normalizedPrefix,
+                            true) - typoPenalty,
+                        0,
+                        SuggestionKind.Completion));
+                }
+
+                if (result.Count >= 12)
                     break;
             }
         }
 
-        return completions
+        // If a typo still leaves the exact candidate pool short, use a small
+        // deterministic vocabulary fallback. This is only for prefix mode and
+        // is bounded by the cached hot-word list, never the full vocabulary.
+        if (result.Count < 3)
+        {
+            EnsureVocabularyIndex();
+
+            foreach (string word in _learnedHotWords!.Take(160))
+            {
+                if (!word.StartsWith(normalizedPrefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                AddRealPrefixCandidate(word, 20);
+
+                if (result.Count >= 8)
+                    break;
+            }
+        }
+
+        if (result.Count < 3 && !IsRomanLanguage())
+            AddMorphologicalCompletions(normalizedPrefix, result, seen);
+
+        // The strip is always three items. Prefer real completions/corrections;
+        // only use contextual predictions to fill missing slots after all
+        // prefix-aware candidates have been exhausted.
+        if (result.Count < 3)
+        {
+            foreach (SuggestionCandidate candidate in NextWordCandidates(history))
+            {
+                if (!seen.Add(candidate.Word))
+                    continue;
+
+                result.Add(new SuggestionCandidate(
+                    candidate.Word,
+                    candidate.Score - 250,
+                    0,
+                    SuggestionKind.Prediction));
+
+                if (result.Count >= 3)
+                    break;
+            }
+        }
+
+        return result
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Word.Length)
             .ThenBy(x => x.Word, StringComparer.OrdinalIgnoreCase)
@@ -657,49 +777,130 @@ internal sealed class LanguageProfile
             .ToList();
     }
 
+    private void AddMorphologicalCompletions(
+        string prefix,
+        List<SuggestionCandidate> result,
+        HashSet<string> seen)
+    {
+        EnsureVocabularyIndex();
+
+        // Only derive from an actual dictionary/base candidate. This prevents
+        // arbitrary invented strings from becoming suggestions.
+        string? baseWord = GetCandidatesForPrefix(prefix)
+            .Where(x =>
+                x.Length > prefix.Length &&
+                x.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(GlobalPrior)
+            .ThenBy(x => x.Length)
+            .FirstOrDefault();
+
+        if (string.IsNullOrWhiteSpace(baseWord))
+            return;
+
+        // If the base itself already starts with the requested prefix, it is a
+        // legitimate candidate and should remain available before variants.
+        if (baseWord.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
+            !baseWord.Equals(prefix, StringComparison.OrdinalIgnoreCase) &&
+            seen.Add(baseWord))
+        {
+            result.Add(new SuggestionCandidate(
+                baseWord,
+                GlobalPrior(baseWord) - 10,
+                0,
+                SuggestionKind.Completion));
+
+            if (result.Count >= 3)
+                return;
+        }
+
+        string[] variants;
+
+        if (baseWord.EndsWith("e", StringComparison.OrdinalIgnoreCase))
+        {
+            variants = new[]
+            {
+                baseWord + "s",
+                baseWord[..^1] + "ed",
+                baseWord[..^1] + "ing"
+            };
+        }
+        else
+        {
+            variants = new[]
+            {
+                baseWord + "s",
+                baseWord + "ed",
+                baseWord + "ing"
+            };
+        }
+
+        foreach (string variant in variants)
+        {
+            if (result.Count >= 3)
+                break;
+
+            if (!IsUsableWord(variant) ||
+                !variant.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+                !seen.Add(variant))
+                continue;
+
+            // Morphological variants are lower-confidence than real vocabulary.
+            result.Add(new SuggestionCandidate(
+                variant,
+                GlobalPrior(baseWord) - 30,
+                0,
+                SuggestionKind.Completion));
+        }
+    }
+
     private List<SuggestionCandidate> NextWordCandidates(
         IReadOnlyList<string> history)
     {
-        HashSet<string> pool = new(StringComparer.OrdinalIgnoreCase);
+        // Bounded candidate pool: contextual candidates + common cold-start
+        // candidates + a small learned-hot set. Never scan all 124k words here.
+        Dictionary<string, int> scores =
+            new(StringComparer.OrdinalIgnoreCase);
+
+        void AddCandidate(string word, int bonus)
+        {
+            if (!IsUsableWord(word))
+                return;
+
+            scores[word] = scores.GetValueOrDefault(word) + bonus;
+        }
 
         for (int length = Math.Min(4, history.Count); length >= 1; length--)
         {
             string key = BuildContextKey(history.TakeLast(length));
 
-            if (SeedContexts.TryGetValue(
-                    key,
-                    out Dictionary<string, int>? seedNext))
+            if (SeedContexts.TryGetValue(key, out Dictionary<string, int>? seed))
             {
-                foreach (string word in seedNext.Keys)
-                    pool.Add(word);
+                foreach (KeyValuePair<string, int> item in seed)
+                    AddCandidate(item.Key, item.Value * (length + 1));
             }
 
-            if (ContextNext.TryGetValue(
-                    key,
-                    out Dictionary<string, int>? learnedNext))
+            if (ContextNext.TryGetValue(key, out Dictionary<string, int>? learned))
             {
-                foreach (string word in learnedNext.Keys)
-                    pool.Add(word);
+                foreach (KeyValuePair<string, int> item in learned)
+                    AddCandidate(item.Key, Math.Min(item.Value * 55, 700));
             }
         }
 
-        // Always retain a strong cold-start pool. Only a few hundred words are
-        // considered here, so next-word prediction stays cheap even with a
-        // 124k-word language pack. Personal words are added separately.
-        foreach (string word in CommonWordsOrdered.Take(320))
-            pool.Add(word);
+        foreach (string word in CommonWordsOrdered.Take(360))
+            AddCandidate(word, 0);
 
-        foreach (string word in Words.Keys)
-            pool.Add(word);
+        EnsureVocabularyIndex();
 
-        // Learned/contextual candidates may be absent on a fresh profile.
-        // The cold-start pool above guarantees a meaningful local fallback.
+        if (_learnedHotWords != null)
+        {
+            foreach (string word in _learnedHotWords.Take(120))
+                AddCandidate(word, 0);
+        }
 
-        return pool
-            .Where(IsUsableWord)
-            .Select(word => new SuggestionCandidate(
-                word,
-                ScoreWord(history, word, "", false),
+        List<SuggestionCandidate> ranked = scores
+            .Select(x => new SuggestionCandidate(
+                x.Key,
+                ScoreWord(history, x.Key, "", false) + x.Value,
                 0,
                 SuggestionKind.Prediction))
             .OrderByDescending(x => x.Score)
@@ -707,6 +908,29 @@ internal sealed class LanguageProfile
             .ThenBy(x => x.Word, StringComparer.OrdinalIgnoreCase)
             .Take(3)
             .ToList();
+
+        if (ranked.Count < 3)
+        {
+            foreach (string word in CommonWordsOrdered.Take(12))
+            {
+                if (!IsUsableWord(word) ||
+                    ranked.Any(x => x.Word.Equals(
+                        word,
+                        StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                ranked.Add(new SuggestionCandidate(
+                    word,
+                    1,
+                    0,
+                    SuggestionKind.Prediction));
+
+                if (ranked.Count >= 3)
+                    break;
+            }
+        }
+
+        return ranked.Take(3).ToList();
     }
 
     public List<string> Candidates(
@@ -723,6 +947,7 @@ internal sealed class LanguageProfile
             return null;
 
         typed = typed.Trim();
+
         string? explicitCorrection = TryGetAutocorrection(typed);
         if (!string.IsNullOrWhiteSpace(explicitCorrection))
             return explicitCorrection;
@@ -731,9 +956,7 @@ internal sealed class LanguageProfile
 
         IEnumerable<string> vocabulary =
             GetCandidatesForPrefix(
-                typed.Length > 0
-                    ? typed[..Math.Min(2, typed.Length)]
-                    : "");
+                typed[..Math.Min(2, typed.Length)]);
 
         return vocabulary
             .Where(word =>
@@ -765,10 +988,7 @@ internal sealed class LanguageProfile
             return new List<string>();
 
         return context
-            .Split(
-                ' ',
-                StringSplitOptions.RemoveEmptyEntries |
-                StringSplitOptions.TrimEntries)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Where(IsUsableWord)
             .Select(x => x.ToLowerInvariant())
             .TakeLast(4)
@@ -776,26 +996,25 @@ internal sealed class LanguageProfile
     }
 
     private static string BuildContextKey(IEnumerable<string> words) =>
-        string.Join(
-            '\u001F',
-            words.Select(x => x.ToLowerInvariant()));
+        string.Join('\u001F', words.Select(x => x.ToLowerInvariant()));
 
     private static Dictionary<string, int> Map(params string[] entries)
     {
-        Dictionary<string, int> map =
+        Dictionary<string, int> result =
             new(StringComparer.OrdinalIgnoreCase);
 
         foreach (string entry in entries)
         {
             string[] parts = entry.Split(':', 2);
+
             if (parts.Length != 2 ||
                 !int.TryParse(parts[1], out int score))
                 continue;
 
-            map[parts[0]] = score;
+            result[parts[0]] = score;
         }
 
-        return map;
+        return result;
     }
 
     public void Save()
@@ -803,12 +1022,14 @@ internal sealed class LanguageProfile
         try
         {
             string? directory = System.IO.Path.GetDirectoryName(Path);
+
             if (!string.IsNullOrWhiteSpace(directory))
                 Directory.CreateDirectory(directory);
 
             File.WriteAllText(
                 Path,
                 JsonSerializer.Serialize(this));
+
             _dirty = false;
         }
         catch
@@ -820,6 +1041,7 @@ internal sealed class LanguageProfile
     {
         a = a.ToLowerInvariant();
         b = b.ToLowerInvariant();
+
         int[,] d = new int[a.Length + 1, b.Length + 1];
 
         for (int i = 0; i <= a.Length; i++)

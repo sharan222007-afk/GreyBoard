@@ -1259,6 +1259,18 @@ internal static class Native
 
     public delegate nint HookProc(int nCode, nint wParam, nint lParam);
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSG
+    {
+        public nint hwnd;
+        public uint message;
+        public nint wParam;
+        public nint lParam;
+        public uint time;
+        public int ptX;
+        public int ptY;
+    }
+
     public struct KBDLLHOOKSTRUCT
     {
         public uint vkCode;
@@ -1351,6 +1363,37 @@ internal static class Native
 
     [DllImport("user32.dll")]
     public static extern nint CallNextHookEx(nint hhk, int code, nint wParam, nint lParam);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int GetMessage(
+        out MSG lpMsg,
+        nint hWnd,
+        uint wMsgFilterMin,
+        uint wMsgFilterMax);
+
+    [DllImport("user32.dll")]
+    public static extern bool PeekMessage(
+        out MSG lpMsg,
+        nint hWnd,
+        uint wMsgFilterMin,
+        uint wMsgFilterMax,
+        uint wRemoveMsg);
+
+    [DllImport("user32.dll")]
+    public static extern bool TranslateMessage(ref MSG lpMsg);
+
+    [DllImport("user32.dll")]
+    public static extern nint DispatchMessage(ref MSG lpMsg);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool PostThreadMessage(
+        uint idThread,
+        uint msg,
+        nint wParam,
+        nint lParam);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
     public static extern nint GetModuleHandle(string? name);
