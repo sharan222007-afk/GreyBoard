@@ -604,8 +604,14 @@ internal sealed class LanguageProfile
         bool completion)
     {
         int score = GlobalPrior(word);
-        score += ContextScore(history, word);
+        int contextScore = ContextScore(history, word);
+        score += contextScore;
         score += HeuristicContextScore(history, word);
+
+        // Context can reorder genuine prefix matches, but cannot overpower
+        // lexical prefix fidelity.
+        if (completion && contextScore > 0)
+            score += Math.Min(contextScore, 260);
 
         if (completion && prefix.Length > 0)
         {
@@ -748,27 +754,11 @@ internal sealed class LanguageProfile
         if (result.Count < 3 && !IsRomanLanguage())
             AddMorphologicalCompletions(normalizedPrefix, result, seen);
 
-        // The strip is always three items. Prefer real completions/corrections;
-        // only use contextual predictions to fill missing slots after all
-        // prefix-aware candidates have been exhausted.
-        if (result.Count < 3)
-        {
-            foreach (SuggestionCandidate candidate in NextWordCandidates(history))
-            {
-                if (!seen.Add(candidate.Word))
-                    continue;
-
-                result.Add(new SuggestionCandidate(
-                    candidate.Word,
-                    candidate.Score - 250,
-                    0,
-                    SuggestionKind.Prediction));
-
-                if (result.Count >= 3)
-                    break;
-            }
-        }
-
+        // Active-prefix mode is completion-only.
+        // Never fill a missing slot with a next-word prediction. The user is
+        // still typing the current word, so every visible candidate must match
+        // the active prefix (or be a bounded fuzzy completion).
+        // If only two valid completions exist, slot 3 remains blank.
         return result
             .OrderByDescending(x => x.Score)
             .ThenBy(x => x.Word.Length)

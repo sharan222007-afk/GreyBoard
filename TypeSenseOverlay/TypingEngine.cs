@@ -94,6 +94,7 @@ internal sealed class TypingEngine : IDisposable
             LanguagePackManager.Load(_settings.SelectedLanguagePack));
 
         _overlay.SetPredictionClickHandler(Accept);
+        _overlay.SetEmojiInsertHandler(emoji => Native.InsertTextAtCaret(emoji));
         _caretTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMilliseconds(180L)
@@ -247,6 +248,12 @@ internal sealed class TypingEngine : IDisposable
             if (IsPaused)
                 return;
 
+            // Normal typing is intentionally debounced. A prediction shortcut
+            // is an explicit request for the state at the caret NOW, so make
+            // this path authoritative without adding work to every keypress.
+            _predictionRefreshTimer.Stop();
+            RefreshFromActiveCaret();
+
             int? choice = PredictionChoice(input.Key);
             if (choice.HasValue &&
                 choice.Value >= 0 &&
@@ -371,31 +378,6 @@ internal sealed class TypingEngine : IDisposable
         _pendingPredictionReplaceLength = _current.Length;
         _pendingShortcutKeyUpReceived = false;
 
-        // Capture the freshest context at acceptance time. This is especially
-        // important for Advanced Shift+Alt, where selection and Shift release
-        // are separated by a real physical key interval.
-        if (Native.TryGetActiveTextContext(
-                out Native.ActiveTextContext context))
-        {
-            _pendingPredictionActiveWord = context.Word;
-            _pendingPredictionPrevious =
-                string.IsNullOrWhiteSpace(context.PreviousWord)
-                    ? _pendingPredictionPrevious
-                    : context.PreviousWord;
-            _pendingPredictionRecentContext = context.RecentContext;
-            _pendingPredictionTyped =
-                string.IsNullOrWhiteSpace(context.Word)
-                    ? string.Empty
-                    : context.CaretInsideWord &&
-                      !string.IsNullOrWhiteSpace(context.Prefix)
-                        ? context.Prefix
-                        : context.Word;
-            _pendingPredictionReplaceLength = context.Word.Length;
-
-            if (!string.IsNullOrWhiteSpace(context.Word))
-                Native.CapturePredictionTarget(context.Word);
-        }
-
         DiagnosticLog(
             $"SHORTCUT_SNAPSHOT word=\"{_pendingPredictionWord}\" " +
             $"typedPrefix=\"{_pendingPredictionTyped}\" " +
@@ -452,15 +434,26 @@ internal sealed class TypingEngine : IDisposable
         if (IsPaused || string.IsNullOrWhiteSpace(word))
             return;
 
+        // Do not require the accepted prediction to start with the typed
+        // prefix. A valid prediction can replace characters inside the active
+        // word, e.g. "goo" -> "going" or "goob" -> "good".
+        //
+        // Stale-candidate protection is handled by the authoritative active
+        // word check below (context.Word == expectedActiveWord). Requiring
+        // StartsWith here incorrectly rejects legitimate predictions whose
+        // spelling diverges after the typed prefix.
         if (!string.IsNullOrWhiteSpace(typedPrefix) &&
-            !word.StartsWith(
+            !string.IsNullOrWhiteSpace(expectedActiveWord) &&
+            !typedPrefix.StartsWith(
+                expectedActiveWord,
+                StringComparison.OrdinalIgnoreCase) &&
+            !expectedActiveWord.StartsWith(
                 typedPrefix,
                 StringComparison.OrdinalIgnoreCase))
         {
             DiagnosticLog(
-                $"ACCEPT_REJECT staleCandidate prefix=\"{typedPrefix}\" " +
-                $"word=\"{word}\"");
-            return;
+                $"ACCEPT_PREFIX_MISMATCH allowed activeWord=\"{expectedActiveWord}\" " +
+                $"typedPrefix=\"{typedPrefix}\" prediction=\"{word}\"");
         }
 
         if (!Native.TryGetActiveTextContext(
@@ -553,7 +546,8 @@ internal sealed class TypingEngine : IDisposable
             return;
         }
 
-        string output = char.IsUpper(context.Word[0])
+        bool isEmoji = EmojiMap.IsEmoji(word);
+        string output = !isEmoji && char.IsUpper(context.Word[0])
             ? char.ToUpperInvariant(word[0]) + word.Substring(1)
             : word;
 
@@ -655,7 +649,7 @@ internal sealed class TypingEngine : IDisposable
         }
 
         int count =
-            Math.Min(3, _candidates.Count);
+            Math.Min(5, _candidates.Count);
 
         if (count <= 0)
             return;
@@ -695,7 +689,15 @@ internal sealed class TypingEngine : IDisposable
         }
 
         int index = _selectedPredictionIndex;
-        string word = _candidates[index].Word;
+        if (index < 0 || index >= Math.Min(5, _candidates.Count))
+        {
+            _selectedPredictionIndex = -1;
+            return;
+        }
+
+        string word = EmojiMap.IsEmoji(_candidates[index].Word)
+            ? EmojiMap.ApplySelectedSkinTone(_candidates[index].Word)
+            : _candidates[index].Word;
 
         DiagnosticLog(
             "ADVANCED_COMMIT index=" +
@@ -735,7 +737,9 @@ internal sealed class TypingEngine : IDisposable
         if (index < 0 || index >= _candidates.Count)
             return;
 
-        string word = _candidates[index].Word;
+        string word = EmojiMap.IsEmoji(_candidates[index].Word)
+            ? EmojiMap.ApplySelectedSkinTone(_candidates[index].Word)
+            : _candidates[index].Word;
         string typedPrefix = _predictionPrefix;
         string activeWord = _current;
         string previous = _previous;
@@ -765,7 +769,10 @@ internal sealed class TypingEngine : IDisposable
             _recentContext = context.RecentContext;
         }
 
-        // Clean up prefixes for Emoji and Clipboard injections
+        // Emoji candidates are first-class candidates and do not need to
+        // preserve the typed text prefix. Clipboard-style candidates retain
+        // their existing special handling.
+        bool isEmoji = EmojiMap.IsEmoji(word);
         if (word.StartsWith("📋 "))
         {
             word = word.Substring(3);
@@ -776,10 +783,9 @@ internal sealed class TypingEngine : IDisposable
             typedPrefix = "";
         }
 
-        if (!string.IsNullOrWhiteSpace(typedPrefix) &&
-            !word.StartsWith(
-                typedPrefix,
-                StringComparison.OrdinalIgnoreCase))
+        if (!isEmoji &&
+            !string.IsNullOrWhiteSpace(typedPrefix) &&
+            !word.StartsWith(typedPrefix, StringComparison.OrdinalIgnoreCase))
             return;
 
         bool accepted;
@@ -787,7 +793,7 @@ internal sealed class TypingEngine : IDisposable
         if (replaceLength > 0 &&
             !string.IsNullOrWhiteSpace(activeWord))
         {
-            bool upper = char.IsUpper(activeWord[0]);
+            bool upper = !isEmoji && char.IsUpper(activeWord[0]);
             string output = upper
                 ? char.ToUpperInvariant(word[0]) + word.Substring(1)
                 : word;
@@ -908,75 +914,108 @@ internal sealed class TypingEngine : IDisposable
 
     private void RenderCandidates()
     {
-        List<SuggestionCandidate> normalized = _candidates
+        List<SuggestionCandidate> deduped = _candidates
             .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Word))
-            .GroupBy(
-                candidate => candidate.Word,
-                StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(candidate => candidate.Score)
-                .First())
-            .OrderByDescending(candidate => candidate.Score)
+            .GroupBy(candidate => candidate.Word, StringComparer.Ordinal)
+            .Select(group => group.OrderByDescending(candidate => candidate.Score).First())
+            .ToList();
+
+        List<SuggestionCandidate> emojis = deduped
+            .Where(candidate => candidate.Kind == SuggestionKind.Emoji || EmojiMap.IsEmoji(candidate.Word))
             .Take(3)
             .ToList();
 
-        // The prediction strip should not disappear just because one refresh
-        // produced too few prefix candidates. The language model has a bounded
-        // local fallback; use it to fill the remaining slots.
-        if (!IsPaused && normalized.Count < 3)
-        {
-            HashSet<string> existing = new(
-                normalized.Select(x => x.Word),
-                StringComparer.OrdinalIgnoreCase);
+        List<SuggestionCandidate> text = deduped
+            .Where(candidate => candidate.Kind != SuggestionKind.Emoji && !EmojiMap.IsEmoji(candidate.Word))
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Word.Length)
+            .ThenBy(candidate => candidate.Word, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-            foreach (SuggestionCandidate candidate in
-                _profile.CandidateModels(
-                    _previous,
-                    string.Empty,
-                    _recentContext))
-            {
-                if (!existing.Add(candidate.Word))
-                    continue;
-
-                normalized.Add(candidate);
-
-                if (normalized.Count >= 3)
-                    break;
-            }
-
-            normalized = normalized
-                .OrderByDescending(x => x.Score)
-                .ThenBy(x => x.Word.Length)
-                .ThenBy(x => x.Word, StringComparer.OrdinalIgnoreCase)
-                .Take(3)
-                .ToList();
-        }
-
-        if (!IsPaused &&
-            normalized.Count == 0 &&
-            _candidates.Count > 0)
-        {
-            // Preserve the last valid set during a transient model/context
-            // miss. This avoids flicker and blank frames while typing.
-            normalized = _candidates
-                .Where(x => !string.IsNullOrWhiteSpace(x.Word))
-                .Take(3)
-                .ToList();
-        }
-
-        _candidates = normalized;
+        // Five internal candidates: two text + up to three emoji.
+        // The overlay compresses the emoji candidates into visual slot #3.
+        _candidates = emojis.Count > 0
+            ? text.Take(2).Concat(emojis.Take(3)).ToList()
+            : text.Take(3).ToList();
 
         if (_selectedPredictionIndex >= _candidates.Count)
             _selectedPredictionIndex = -1;
 
-        List<string> words = _candidates
-            .Select(candidate => candidate.Word)
-            .ToList();
-
         _overlay.Render(
-            words,
+            _candidates
+                .Select(candidate =>
+                    EmojiMap.IsEmoji(candidate.Word)
+                        ? EmojiMap.ApplySelectedSkinTone(candidate.Word)
+                        : candidate.Word)
+                .ToList(),
             IsPaused,
             _selectedPredictionIndex);
+    }
+
+    private static List<SuggestionCandidate> BuildEmojiCandidates(
+        string currentWord,
+        string previousWord,
+        string recentContext)
+    {
+        // Emoji suggestions should describe the most recent completed word.
+        // The active word is often only a prefix, so using it as emoji context
+        // produces unstable/unrelated emojis while the user is typing.
+        _ = currentWord;
+
+        List<string> history = ParseRecentContext(recentContext)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim().ToLowerInvariant())
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(previousWord))
+            history.Add(previousWord.Trim().ToLowerInvariant());
+
+        // First choice: exact context of the immediately preceding word.
+        // This makes emoji suggestions deterministic instead of mixing emojis
+        // from several unrelated words in the previous sentence.
+        if (history.Count > 0)
+        {
+            string newestWord = history[^1];
+            List<string> direct = EmojiMap.GetContextual(new[] { newestWord })
+                .Distinct(StringComparer.Ordinal)
+                .Take(3)
+                .ToList();
+
+            if (direct.Count > 0)
+            {
+                return direct
+                    .Select((emoji, index) => new SuggestionCandidate(
+                        emoji,
+                        320 - (index * 10),
+                        0,
+                        SuggestionKind.Emoji))
+                    .ToList();
+            }
+
+            // Fallback: find the newest earlier word with a known emoji mapping.
+            // We deliberately stop at the first match rather than combining
+            // multiple topics.
+            foreach (string word in history.AsEnumerable().Reverse().Skip(1))
+            {
+                List<string> fallback = EmojiMap.GetContextual(new[] { word })
+                    .Distinct(StringComparer.Ordinal)
+                    .Take(3)
+                    .ToList();
+
+                if (fallback.Count == 0)
+                    continue;
+
+                return fallback
+                    .Select((emoji, index) => new SuggestionCandidate(
+                        emoji,
+                        250 - (index * 10),
+                        0,
+                        SuggestionKind.Emoji))
+                    .ToList();
+            }
+        }
+
+        return new List<SuggestionCandidate>();
     }
 
     private void RefreshFromActiveCaret()
@@ -1034,13 +1073,17 @@ internal sealed class TypingEngine : IDisposable
 
         _predictionPrefix = predictionPrefix;
 
-        // Emoji Search Feature
+        // Colon search is a local, bounded emoji mode.
         if (_predictionPrefix.StartsWith(":"))
         {
             string emojiSearch = _predictionPrefix.Substring(1);
             if (emojiSearch.Length > 0)
             {
-                _candidates = EmojiMap.GetMatches(emojiSearch);
+                _candidates = EmojiMap.GetMatches(emojiSearch)
+                    .Take(5)
+                    .Select(candidate => new SuggestionCandidate(
+                        candidate.Word, candidate.Score, candidate.EditDistance, SuggestionKind.Emoji))
+                    .ToList();
                 RenderCandidates();
                 return;
             }
@@ -1061,24 +1104,20 @@ internal sealed class TypingEngine : IDisposable
             _selectionContextKey = selectionContextKey;
         }
 
-        _candidates = _profile
-            .CandidateModels(_previous, predictionPrefix, _recentContext);
+        List<SuggestionCandidate> textCandidates = _profile
+            .CandidateModels(_previous, predictionPrefix, _recentContext)
+            .Where(candidate =>
+                string.IsNullOrWhiteSpace(context.Word) ||
+                !candidate.Word.Equals(context.Word, StringComparison.OrdinalIgnoreCase))
+            .Where(candidate => candidate.Kind != SuggestionKind.Emoji && !EmojiMap.IsEmoji(candidate.Word))
+            .ToList();
 
-        if (!string.IsNullOrWhiteSpace(predictionPrefix))
-        {
-            // LanguageProfile.CandidateModels already performs the controlled
-            // prefix/context ranking. Do not apply a second hard prefix filter
-            // here: doing so discards the contextual fallback candidates that
-            // are intentionally used when a prefix has fewer than three strong
-            // completions. Only suppress the exact word already typed.
-            _candidates = _candidates
-                .Where(candidate =>
-                    string.IsNullOrWhiteSpace(context.Word) ||
-                    !candidate.Word.Equals(
-                        context.Word,
-                        StringComparison.OrdinalIgnoreCase))
-                .ToList();
-        }
+        List<SuggestionCandidate> emojiCandidates = BuildEmojiCandidates(
+            context.Word, _previous, _recentContext);
+
+        _candidates = emojiCandidates.Count > 0
+            ? textCandidates.Take(2).Concat(emojiCandidates).ToList()
+            : textCandidates.Take(3).ToList();
 
         DiagnosticLog(
             $"REFRESH word=\"{context.Word}\" prefix=\"{context.Prefix}\" " +
@@ -1110,11 +1149,19 @@ internal sealed class TypingEngine : IDisposable
                     0,
                     SuggestionKind.Correction));
 
-            _candidates = _candidates
+            List<SuggestionCandidate> correctionText = _candidates
+                .Where(candidate => candidate.Kind != SuggestionKind.Emoji && !EmojiMap.IsEmoji(candidate.Word))
                 .OrderByDescending(candidate => candidate.Score)
-                .ThenBy(candidate => candidate.Word)
+                .ThenBy(candidate => candidate.Word, StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToList();
+
+            List<SuggestionCandidate> correctionEmoji = _candidates
+                .Where(candidate => candidate.Kind == SuggestionKind.Emoji || EmojiMap.IsEmoji(candidate.Word))
                 .Take(3)
                 .ToList();
+
+            _candidates = correctionText.Concat(correctionEmoji).ToList();
         }
 
         List<string> words = _candidates

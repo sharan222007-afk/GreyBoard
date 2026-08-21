@@ -6,7 +6,8 @@ internal enum SuggestionKind
     Correction,
     Completion,
     Prediction,
-    Personal
+    Personal,
+    Emoji
 }
 
 internal sealed class SuggestionCandidate
