@@ -1,7 +1,0 @@
-Grey Board runtime fixes applied:
-- Wired SuggestionOverlay mouse clicks to TypingEngine.Accept.
-- Added Up/Down selection and Enter/Space acceptance.
-- Changed prediction defaults from Alt+Shift (Windows language switch) to Ctrl+Alt+1/2/3.
-- AI now predicts next words after completed words as well as partial-word completion.
-- Added AI debounce and request de-duplication.
-- Reduced hard-coded Roman-Telugu seed dominance so predictions are less repetitive.
